@@ -1,17 +1,41 @@
 # Schoology Mobile Web
 
-This repository now uses the **original Schoology Desktop Port renderer and stylesheet**, with the desktop port's real image/icon assets copied into this repository. The previous hand-built Stage 1 prototype has been replaced.
+This repository uses the original Schoology Desktop Port renderer, CSS, and image assets, with a browser compatibility layer and Vercel serverless API routes.
 
-## Source reused
-- Desktop source baseline: `tling0001/schoology-for-desktop-port`, commit `d1ded939bf761c3a0ab5ae2fcc4735334f87edb0`, version `2026.06.0-port.168`
-- Renderer: `renderer.js` (copied from original `src/renderer.js`)
-- Styling: `styles.css` (copied from original `src/styles.css`)
-- Visual assets: `assets/` (original desktop port assets)
+## Current browser adapter
 
-## Browser adaptation status
-The original renderer expects Electron's preload bridge. `browser-bridge.js` provides browser-safe settings and compatibility methods so the original renderer can initialize in a static Vercel deployment. It does **not** embed the Schoology API consumer secret, collect passwords, or fabricate authenticated data. Sign-in buttons open Schoology's official sign-in page; authenticated course data, uploads, QR login, and other privileged API actions remain unavailable until a secure server-side adapter is implemented.
+- Original desktop renderer and styles from `tling0001/schoology-for-desktop-port` version `2026.06.0-port.168`
+- Schoology username/password login and QR-code login run through Vercel functions.
+- OAuth request signing and access tokens remain server-side.
+- An encrypted, eight-hour `HttpOnly; SameSite=Strict` cookie carries the session; passwords are not stored.
+- Authenticated API requests (course data, groups, messages, resources, grades, and calendar endpoints used by the renderer) are proxied through `/api/schoology`.
+- File attachments and assignment file submissions use `/api/schoology/upload`. The first stage limits files to 3 MB because of Vercel's serverless request-size ceiling.
+- Authenticated downloads are proxied through `/api/schoology/download` for HTTPS Schoology subdomains only.
 
-This is a renderer replacement, not a claim of full browser feature parity.
+## Required Vercel environment variables
+
+Configure these in **Vercel → Project → Settings → Environment Variables** for Production, Preview, and Development as appropriate. Never add secret values to GitHub.
+
+| Variable | Purpose |
+| --- | --- |
+| `SCHOOLOGY_CONSUMER_KEY` | Approved Schoology API consumer key used by the existing app |
+| `SCHOOLOGY_CONSUMER_SECRET` | Corresponding API consumer secret; server-side only |
+| `SESSION_ENCRYPTION_KEY` | Random 32-byte key used to encrypt session cookies |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint used for login/search rate limiting |
+| `UPSTASH_REDIS_REST_TOKEN` | Private Upstash Redis REST token |
+
+Generate a session key locally with `openssl rand -base64 32`, then paste the output into Vercel. Do not commit it. Set up an Upstash Redis database and copy its REST URL and REST token into Vercel. Production login and school search intentionally stay disabled until rate limiting is configured.
+
+Use Schoology API credentials only if you are authorized to use them. Keep them in Vercel's encrypted environment settings, never in client JavaScript or public files. After changing environment variables, redeploy the Vercel project.
+
+## Important limitations
+
+- District-specific SSO/browser handoff is not implemented yet; use the Schoology username/password or QR login flow.
+- Browser pages cannot install Schoology cookies into another domain, so authenticated embedded Schoology webviews and some course-app flows need a separate supported sign-in strategy.
+- The initial upload route is capped at 3 MB. Larger files need a staged object-storage upload flow (for example, a short-lived Vercel Blob upload token) before they can be forwarded server-side.
+- Desktop-only updater, local-file reveal/open, window chrome, and grade editing are not browser features yet.
+- Do not enable production sign-in until the Vercel environment variables and rate limiter are configured.
 
 ## Deploy
-Import this repository into Vercel as a static site. The root `index.html` is the entry point; no Electron build or GitHub Actions workflow is required.
+
+Import this repository into Vercel as a static/browser application with Node.js serverless functions. The root `index.html` is the entry point. No Electron build is needed.

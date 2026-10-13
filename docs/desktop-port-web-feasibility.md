@@ -1,12 +1,18 @@
-# Desktop renderer browser-port notes
+# Secure browser adapter implementation notes
 
-## What this commit changes
-- Replaces the Stage 1 handcrafted HTML/CSS/JS prototype with the original desktop port renderer and CSS.
-- Copies the original port's `assets/` tree, preserving its logos, loading animation, icons, and attachment artwork.
-- Adds a browser compatibility adapter for the Electron preload API used by the renderer.
-- Keeps this deployment static/Vercel-compatible and does not modify the original desktop repository.
+## Implemented in this stage
+- Vercel API routes for username/password login, QR login, session inspection, logout, school search, authenticated API requests, file upload/assignment submission, and authenticated downloads.
+- OAuth signing runs in server-side Node.js code. Browser code never receives the consumer secret or OAuth token/secret.
+- OAuth token and token secret are encrypted with AES-256-GCM inside an eight-hour `HttpOnly`, `SameSite=Strict` cookie.
+- State-changing routes verify same-origin requests.
+- Production sign-in and school search require Upstash Redis rate limiting; missing rate-limit configuration fails closed.
+- Uploaded file size is capped at 3 MiB, below the Vercel function request-size limit.
 
-## Why some behavior is not active yet
-The Electron app performs authenticated Schoology API calls, OAuth signing, file operations, update installation, and session sharing in its main process. A static browser page cannot safely reuse those privileged operations or ship the API consumer secret. The adapter intentionally opens the official Schoology login page instead of collecting credentials and reports unavailable API features rather than displaying fabricated data.
+## Not yet implemented
+- District SSO/browser callback flow and cross-domain Schoology cookie sharing.
+- Large-file upload via temporary object storage.
+- All Electron-only features such as app updates, desktop notifications, local file paths, OS integration, and window controls.
+- Grade editing. Generic authenticated API requests are available for renderer operations that already use the desktop port's `A.api` contract.
 
-A later backend stage can implement a narrowly scoped server-side API/auth adapter with secrets stored in Vercel environment variables. It must not place OAuth secrets in browser JavaScript.
+## Deployment setup
+Set `SCHOOLOGY_CONSUMER_KEY`, `SCHOOLOGY_CONSUMER_SECRET`, `SESSION_ENCRYPTION_KEY`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN` in Vercel environment settings. Generate a random 32-byte session key, keep all secrets out of Git, and redeploy after configuration. Do not turn on production login until these settings are complete.

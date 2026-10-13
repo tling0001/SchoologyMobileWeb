@@ -2186,3 +2186,5 @@ html[data-electron-platform="win32"][data-window-controls-overlay="true"] .toolb
 }
 :root[data-theme="dark"] .schoolProfileUpcomingPane{background:var(--theme-surface,#202327);border-color:var(--theme-border,#3a3f46)}
 :root[data-theme="dark"] .schoolProfileUpcomingContent .upcomingAssignment{background:var(--theme-surface,#202327);border-color:var(--theme-border,#3a3f46);color:var(--theme-text,#e6e8eb)}
+
+.schoolOAuthNotice{color:#fff;font-size:14px;line-height:1.45}.schoolOAuthNotice strong{display:block;background:#fff2cc;color:#5b4300;border-radius:5px;padding:10px 12px;font-size:15px}.schoolOAuthNotice p{margin:12px 0}.schoolOAuthUrl{display:block;width:100%;min-height:112px;resize:vertical;border:1px solid #cbd2d8;border-radius:5px;background:#fff;color:#22303e;padding:10px;font-size:12px;line-height:1.35;overflow-wrap:anywhere}.schoolOAuthNotice code{overflow-wrap:anywhere}

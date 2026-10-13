@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
       const authorizeQuery = 'oauth_token=' + oauthToken + '&oauth_callback=' + encodeURIComponent(callback);
       const landing = 'oauth/authorize?' + authorizeQuery;
       const url = 'https://' + domain + '/oauth/authorize?oauth_token=' + encodeURIComponent(oauthToken) + '&oauth_callback=' + encodeURIComponent(callback) + '&login_landing_dest=' + encodeURIComponent(landing);
-      return S.send(res, 200, { url });
+      return S.send(res, 200, { url, oauth_token: oauthToken, oauth_token_secret: token.get('oauth_token_secret') });
     });
   } catch (error) { if (!res.headersSent) return S.send(res, error.statusCode || 502, { error: S.safeMessage(error) }); }
 };

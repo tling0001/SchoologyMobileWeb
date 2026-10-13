@@ -12,7 +12,17 @@ module.exports = async function handler(req, res) {
     let url;
     try { url = new URL(raw); } catch { throw S.httpError(400, 'Invalid Schoology file URL.'); }
     const isSchoologyHost = host => host === 'schoology.com' || host.endsWith('.schoology.com');
-    if (url.protocol !== 'https:' || !isSchoologyHost(url.hostname.toLowerCase())) throw S.httpError(400, 'Only HTTPS Schoology file links can be downloaded.');
+    const schoolDomainRaw = String(input.schoolDomain || '').trim();
+    let schoolDomain = '';
+    if (schoolDomainRaw) {
+      try {
+        const parsedDomain = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(schoolDomainRaw) ? schoolDomainRaw : 'https://' + schoolDomainRaw);
+        if (parsedDomain.protocol !== 'https:' || !parsedDomain.hostname) throw new Error();
+        schoolDomain = parsedDomain.hostname.toLowerCase();
+      } catch { throw S.httpError(400, 'Invalid school domain for file download.'); }
+    }
+    const isSchoolHost = host => !!schoolDomain && (host === schoolDomain || host.endsWith('.' + schoolDomain));
+    if (url.protocol !== 'https:' || !(isSchoologyHost(url.hostname.toLowerCase()) || isSchoolHost(url.hostname.toLowerCase()))) throw S.httpError(400, 'Only HTTPS Schoology or selected-school file links can be downloaded.');
     let response = null;
     for (let depth = 0; depth <= 5; depth++) {
       const headers = { 'User-Agent': 'okhttp/4.8.0', Accept: '*/*', Cookie: S.MOBILE_COOKIE };
@@ -21,7 +31,7 @@ module.exports = async function handler(req, res) {
       response = await fetch(url, { headers, redirect: 'manual', signal: AbortSignal.timeout(60000) });
       if (![301,302,303,307,308].includes(response.status) || !response.headers.get('location')) break;
       const next = new URL(response.headers.get('location'), url);
-      if (next.protocol !== 'https:' || !isSchoologyHost(next.hostname.toLowerCase())) throw S.httpError(502, 'Schoology redirected to an unsupported file host.');
+      if (next.protocol !== 'https:' || !(isSchoologyHost(next.hostname.toLowerCase()) || isSchoolHost(next.hostname.toLowerCase()))) throw S.httpError(502, 'Schoology redirected to an unsupported file host.');
       url = next;
     }
     if (!response || response.status < 200 || response.status >= 300 || !response.body) throw S.httpError(502, 'Schoology file download failed.');

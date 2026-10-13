@@ -1286,6 +1286,13 @@ async function showEmbeddedWeb(url,title,options={}){
  if(options.routeSchoology!==false){try{const u=new URL(String(url||''));if((u.hostname.toLowerCase()==='lms.lausd.net'||u.hostname.toLowerCase().endsWith('.schoology.com'))&&/^\/course(?:s)?\/\d+\/materials\/gp\/\d+\/?$/i.test(u.pathname)){if(await routeSchoologyLink(u.href))return;}}catch{}}
  try{await A.prepareWebSession()}catch(e){console.warn('Schoology web session preparation failed:',e)}
  c.classList.remove('webContentHost');c.classList.add('embeddedContentActive');state.toolbarTitle=title||'Schoology';state.embeddedTitle=title||'Schoology';state.embeddedCanOpenExternal=options.allowBrowser!==false;state.embeddedTheme=options.accountInfo?'account':(options.lti?'lti':(options.quiz?'quiz':''));syncToolbar();
+ if(A.platform==='web'&&(options.accountInfo||options.quiz||options.assessment)){
+   c.innerHTML=`<section class="embeddedPage browserEmbeddedFrame"><div id="embeddedWebviewLoading" class="webviewLoading"><img src="assets/android_loading_spinner_72.gif" alt=""><span>Loading…</span></div><iframe id="schoologyEmbeddedFrame" title="${esc(title||'Schoology')}" src="${esc(String(url||''))}" referrerpolicy="strict-origin-when-cross-origin" allow="clipboard-read; clipboard-write; fullscreen"></iframe><p class="iframeFallbackNote">If Schoology blocks this page in an embedded frame, use the open-in-browser option.</p></section>`;
+   const frame=document.getElementById('schoologyEmbeddedFrame'),spinner=document.getElementById('embeddedWebviewLoading');let loaded=false;
+   frame?.addEventListener('load',()=>{loaded=true;spinner?.classList.add('hidden')});
+   setTimeout(()=>{if(!loaded)spinner?.classList.add('hidden')},9000);
+   return;
+ }
  c.innerHTML=`<section class="embeddedPage"><div id="embeddedWebviewLoading" class="webviewLoading"><img src="assets/android_loading_spinner_72.gif" alt=""><span>Loading…</span></div><webview id="schoologyWebview" src="${esc(String(url||''))}" allowpopups></webview></section>`;
  const w=document.getElementById('schoologyWebview');if(!w)return;const spinner=document.getElementById('embeddedWebviewLoading');const setLoading=v=>spinner?.classList.toggle('hidden',!v);let mainNavigation=0;let loadingStartedAt=0;let initialPageLoaded=false;setLoading(true);
  w.addEventListener('did-start-navigation',e=>{if(!e.isMainFrame)return;mainNavigation++;loadingStartedAt=Date.now();setLoading(true);});

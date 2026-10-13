@@ -118,14 +118,22 @@ function schoolLoginDomain(school){
   return '';
 }
 async function startSchoolBrowserLogin(){
-  state.loading=true;state.error='';state.schoolOAuthUrl='';render();
-  try{const domain=schoolLoginDomain(state.school);if(!domain)throw new Error('This school did not provide a valid login domain.');if(A.platform==='web'){state.schoolOAuthUrl=await A.createSchoolOAuthUrl({domain});if(!state.schoolOAuthUrl)throw new Error('Schoology did not return an authorization URL.');state.loading=false;state.screen='externalSelect';render();return;}state.auth=await A.loginSchoolBrowser({domain});await afterLogin();}
-  catch(e){state.loading=false;state.error=e.message||'Browser sign-in failed.';render();}
+  state.loading=true;state.error='';state.schoolOAuthUrl='';state.screen='externalSelect';render();
+  try{
+    const domain=schoolLoginDomain(state.school);
+    if(!domain)throw new Error('This school did not provide a valid login domain. Select the school again or use its full Schoology domain.');
+    if(A.platform==='web'){
+      const url=await A.createSchoolOAuthUrl({domain});
+      if(!url)throw new Error('Schoology did not return an authorization URL. You can retry generating the experimental sign-in link.');
+      state.schoolOAuthUrl=url;state.loading=false;state.screen='externalSelect';render();return;
+    }
+    state.auth=await A.loginSchoolBrowser({domain});await afterLogin();
+  }catch(e){state.loading=false;state.screen='externalSelect';state.error=e.message||'Browser sign-in failed.';render();}
 }
 
 function externalSelect(){
-  const name=state.school?.title||'School',web=A.platform==='web'&&!!state.schoolOAuthUrl;
-  return `<div class="login loginAnimated"><button id="back" class="back" ${state.loading?'disabled':''}>${officialBackIcon()}</button><img class="logo small" src="assets/logo_schoology.png"><div class="loginBody"><div class="selected">${esc(name)}</div>${state.loading?`<div class="qrAuthorizationLoading"><img src="assets/android_loading_spinner_72.gif" alt=""><p>Preparing Schoology sign-in…</p></div>`:web?`<div class="schoolOAuthNotice"><strong>Experimental / beta feature</strong><p>District sign-in is experimental. Copy the complete URL below <b>before pressing Approve</b> on the Schoology authorization page. After you sign in, Schoology may try to open a <code>schoology://</code> link, which this web app cannot handle. Paste the copied URL back into Schoology to continue.</p><textarea id="schoolOAuthUrl" class="schoolOAuthUrl" readonly>${esc(state.schoolOAuthUrl)}</textarea><button id="copySchoolOAuthUrl" class="secondary">Copy authorization URL</button><button id="browserLogin" class="primary">Open school sign-in in new tab</button></div>`:`<button id="browserLogin" class="primary">Try browser sign-in again</button>`}</div>${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`
+  const name=state.school?.title||'School',web=A.platform==='web';
+  return `<div class="login loginAnimated"><button id="back" class="back" ${state.loading?'disabled':''}>${officialBackIcon()}</button><img class="logo small" src="assets/logo_schoology.png"><div class="loginBody"><div class="selected">${esc(name)}</div>${web?`<div class="schoolOAuthNotice"><strong>Experimental / beta feature</strong><p>District sign-in is experimental. If an authorization URL appears, copy the complete URL below <b>before pressing Approve</b> on the Schoology authorization page. After you sign in, Schoology may try to open a <code>schoology://</code> link, which this web app cannot handle. Paste the copied URL back into Schoology to continue.</p>${state.loading?`<div class="qrAuthorizationLoading"><img src="assets/android_loading_spinner_72.gif" alt=""><p>Preparing Schoology sign-in…</p></div>`:state.schoolOAuthUrl?`<textarea id="schoolOAuthUrl" class="schoolOAuthUrl" readonly>${esc(state.schoolOAuthUrl)}</textarea><button id="copySchoolOAuthUrl" class="secondary">Copy authorization URL</button><button id="browserLogin" class="primary">Open school sign-in in new tab</button>`:`<button id="browserLogin" class="primary">Retry generating authorization URL</button>`}</div>`:state.loading?`<div class="qrAuthorizationLoading"><img src="assets/android_loading_spinner_72.gif" alt=""><p>Preparing Schoology sign-in…</p></div>`:`<button id="browserLogin" class="primary">Try browser sign-in again</button>`}</div>${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`
 }
 
 function qr(){return `<div class="qr loginAnimated"><button id="back" class="back" ${state.loading?'disabled':''}>${officialBackIcon()}</button><h1>QR Code Login</h1>${state.loading?`<div class="qrAuthorizationLoading"><img src="assets/android_loading_spinner_72.gif" alt=""><p>Signing in to Schoology…</p></div>`:`<p>Scan Your Code</p><video id="video" autoplay playsinline muted></video><canvas id="canvas"></canvas><p class="qrhint">Point your camera at the QR code shown in Schoology.</p>`}${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`}
@@ -713,7 +721,7 @@ async function openAssignmentAttachmentItem(item,button,dialog){
       if(A.platform==='web'){
         const domain=schoolLoginDomain(state.school);
         const absoluteUrl=new URL(url,domain?'https://'+domain+'/':'https://app.schoology.com/').href;
-        await downloadWithFeedback(button,{url:absoluteUrl,filename,mime:item.filemime||item.fileMIME||'application/octet-stream',schoolDomain:domain});
+        await downloadWithFeedback(button,{url:absoluteUrl,filename,mime:item.filemime||item.fileMIME||'application/octet-stream',schoolDomain:domain,openInBrowser:true});
       }else{
         const result=await downloadWithFeedback(button,{url,filename,mime:item.filemime||item.fileMIME||'application/octet-stream'});
         const error=await A.openDownloadedFile({path:result.path});if(error)throw new Error(error);

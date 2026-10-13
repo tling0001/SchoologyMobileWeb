@@ -13,6 +13,7 @@
     return null;
   }
   let authSession = loadAuth();
+  let pendingSchoolOAuth = null;
   function saveAuth(value) {
     if (!value?.oauth_token || !value?.oauth_token_secret) throw new Error('Schoology did not return a valid OAuth session.');
     authSession = { oauth_token: String(value.oauth_token), oauth_token_secret: String(value.oauth_token_secret), user: value.user || null, userId: Number(value.userId || value.user?.id) || null };
@@ -82,7 +83,8 @@
     networkOnline: async () => navigator.onLine,
     loginCredentials: async input => { const r = await jsonRequest('/api/auth/login', { user: input?.user, password: input?.password, schoolId: input?.schoolId }); return saveAuth(r); },
     loginQR: async qrData => { const payload = typeof qrData === 'string' ? qrData : (qrData?.data || qrData?.rawValue || qrData?.text || ''); if (typeof payload !== 'string' || !payload.trim()) throw new Error('The camera did not return a readable Schoology QR payload. Try scanning the QR code again.'); const r = await jsonRequest('/api/auth/qr', { qrData: payload.trim() }); return saveAuth(r); },
-    createSchoolOAuthUrl: async input => { const r = await jsonRequest('/api/auth/school-oauth', { domain: input?.domain }); return r.url; },
+    createSchoolOAuthUrl: async input => { const r = await jsonRequest('/api/auth/school-oauth', { domain: input?.domain }); if (!r.url || !r.oauth_token || !r.oauth_token_secret) throw new Error('Schoology returned an incomplete authorization session.'); pendingSchoolOAuth = { oauth_token: String(r.oauth_token), oauth_token_secret: String(r.oauth_token_secret) }; return r.url; },
+    completeSchoolOAuth: async input => { if (!pendingSchoolOAuth) throw new Error('The temporary school sign-in session expired. Generate a new authorization URL.'); const r = await jsonRequest('/api/auth/school-oauth-exchange', { oauth_token: pendingSchoolOAuth.oauth_token, oauth_token_secret: pendingSchoolOAuth.oauth_token_secret, callbackUrl: String(input?.callbackUrl || '') }); const saved = saveAuth(r); pendingSchoolOAuth = null; return saved; },
     loginSchoolBrowser: async () => unavailable('District single-sign-on browser login. Use the experimental authorization-link flow instead.'),
     loginExternalSchool: async () => unavailable('District single-sign-on browser login. Use Schoology username/password or QR sign-in for now'),
     schoolSearch: async query => { const r = await fetch('/api/school-search?q=' + encodeURIComponent(query), { credentials: 'same-origin', cache: 'no-store' }); return (await readResponse(r)).schools || []; },

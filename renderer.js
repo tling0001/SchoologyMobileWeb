@@ -303,7 +303,7 @@ function bind(){
     const updateSearchUi=()=>{
       if(status)status.innerHTML=state.loading?'<div class="searchStatus">Searching…</div>':(!state.error&&state.q&&state.schools.length===0?'<div class="searchStatus">No schools found.</div>':'');
       if(list)list.innerHTML=state.schools.length?`<div class="suggestions">${state.schools.map((s,i)=>`<button class="suggestion" data-school="${i}"><b>${esc(s.title||'')}</b><small>${esc([s.id,s.domain,s.location].filter(Boolean).join(' • '))}</small></button>`).join('')}</div>`:'';
-      list?.querySelectorAll('[data-school]').forEach(b=>b.onclick=()=>{state.school=state.schools[+b.dataset.school];state.schools=[];state.error='';if(A.platform==='web'){state.screen='credentials';render();document.getElementById('user')?.focus();}else{state.screen='externalSelect';void startSchoolBrowserLogin();}});
+      list?.querySelectorAll('[data-school]').forEach(b=>b.onclick=()=>{state.school=state.schools[+b.dataset.school];state.schools=[];state.error='';state.schoolOAuthUrl='';state.screen='externalSelect';void startSchoolBrowserLogin();});
     };
     q.oninput=async()=>{
       const query=q.value.trim();state.q=q.value;state.error='';
@@ -709,8 +709,15 @@ async function openAssignmentAttachmentItem(item,button,dialog){
     if(item.kind==='file'){
       const url=item.resolveDownloadUrl||item.resolve_download_url||item.converted_download_path||item.convertedDownloadPath||item.download_path||item.downloadPath||item.url;
       if(!url)throw new Error('Schoology did not provide a file URL.');
-      const result=await downloadWithFeedback(button,{url,filename:item.filename||item.fileName||item.title||'Schoology file',mime:item.filemime||item.fileMIME||'application/octet-stream'});
-      const error=await A.openDownloadedFile({path:result.path});if(error)throw new Error(error);
+      const filename=item.filename||item.fileName||item.title||'Schoology file';
+      if(A.platform==='web'){
+        const domain=schoolLoginDomain(state.school);
+        const absoluteUrl=new URL(url,domain?'https://'+domain+'/':'https://app.schoology.com/').href;
+        await downloadWithFeedback(button,{url:absoluteUrl,filename,mime:item.filemime||item.fileMIME||'application/octet-stream',schoolDomain:domain});
+      }else{
+        const result=await downloadWithFeedback(button,{url,filename,mime:item.filemime||item.fileMIME||'application/octet-stream'});
+        const error=await A.openDownloadedFile({path:result.path});if(error)throw new Error(error);
+      }
       dialog?.classList.remove('open');
     }else if(item.kind==='link'||item.kind==='video'){
       const url=item.url||item.linkURL||item.linkUrl||item.link_url||item.href||item.videoURL||item.videoUrl||item.video_url;

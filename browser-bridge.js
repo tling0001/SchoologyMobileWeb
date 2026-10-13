@@ -25,7 +25,7 @@
     let body;
     try { body = await response.json(); } catch { body = {}; }
     if (response.status === 401) clearAuth();
-    if (!response.ok) throw new Error(body.error || 'The Schoology web service could not complete this request.');
+    if (!response.ok) { const detail = typeof body.error === 'string' ? body.error : (body.error?.message || body.error?.error_description || body.message || 'The Schoology web service could not complete this request.'); throw new Error(String(detail)); }
     return body;
   }
   async function jsonRequest(url, body, method = 'POST') {
@@ -81,7 +81,7 @@
     authState: async () => authSession ? { ...authSession, authenticated: true } : { authenticated: false, user: null },
     networkOnline: async () => navigator.onLine,
     loginCredentials: async input => { const r = await jsonRequest('/api/auth/login', { user: input?.user, password: input?.password, schoolId: input?.schoolId }); return saveAuth(r); },
-    loginQR: async qrData => { const r = await jsonRequest('/api/auth/qr', { qrData }); return saveAuth(r); },
+    loginQR: async qrData => { const payload = typeof qrData === 'string' ? qrData : (qrData?.data || qrData?.rawValue || qrData?.text || ''); if (typeof payload !== 'string' || !payload.trim()) throw new Error('The camera did not return a readable Schoology QR payload. Try scanning the QR code again.'); const r = await jsonRequest('/api/auth/qr', { qrData: payload.trim() }); return saveAuth(r); },
     loginSchoolBrowser: async () => unavailable('District single-sign-on browser login. Use Schoology username/password or QR sign-in for now'),
     loginExternalSchool: async () => unavailable('District single-sign-on browser login. Use Schoology username/password or QR sign-in for now'),
     schoolSearch: async query => { const r = await fetch('/api/school-search?q=' + encodeURIComponent(query), { credentials: 'same-origin', cache: 'no-store' }); return (await readResponse(r)).schools || []; },

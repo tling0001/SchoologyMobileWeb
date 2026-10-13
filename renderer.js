@@ -303,7 +303,7 @@ function bind(){
     const updateSearchUi=()=>{
       if(status)status.innerHTML=state.loading?'<div class="searchStatus">Searching…</div>':(!state.error&&state.q&&state.schools.length===0?'<div class="searchStatus">No schools found.</div>':'');
       if(list)list.innerHTML=state.schools.length?`<div class="suggestions">${state.schools.map((s,i)=>`<button class="suggestion" data-school="${i}"><b>${esc(s.title||'')}</b><small>${esc([s.id,s.domain,s.location].filter(Boolean).join(' • '))}</small></button>`).join('')}</div>`:'';
-      list?.querySelectorAll('[data-school]').forEach(b=>b.onclick=()=>{state.school=state.schools[+b.dataset.school];state.schools=[];state.error='';state.screen='externalSelect';void startSchoolBrowserLogin();});
+      list?.querySelectorAll('[data-school]').forEach(b=>b.onclick=()=>{state.school=state.schools[+b.dataset.school];state.schools=[];state.error='';if(A.platform==='web'){state.screen='credentials';render();document.getElementById('user')?.focus();}else{state.screen='externalSelect';void startSchoolBrowserLogin();}});
     };
     q.oninput=async()=>{
       const query=q.value.trim();state.q=q.value;state.error='';

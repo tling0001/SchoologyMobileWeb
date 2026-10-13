@@ -1,38 +1,32 @@
-# Schoology Web Port — Stage 1
+# Schoology Web Port
 
-This folder is a **separate, browser-first prototype** based on the Schoology Desktop Port project's overall navigation and visual direction. It is deliberately independent of the Electron application.
+A Vercel-deployable, browser-first first stage for exploring a web adaptation of the Schoology Desktop Port.
 
-## What is included
+## What this stage reuses
 
-- Responsive home page and navigation for Home, Courses, Groups, Upcoming, Messages, Resources, and Settings
-- Mobile navigation drawer
-- Light/dark theme toggle (preference saved locally in the current browser)
-- Links to the official Schoology website
-- No package install, bundler, backend, or build step
-- GitHub Pages deployment workflow
+The prototype keeps the existing responsive navigation and theme behavior in this repository, with the desktop port as the source of truth for future UI parity work. The uploaded `schoology desktop port latest version.zip` identifies the desktop baseline as `2026.06.0-port.168`; its original renderer and styling are in `src/renderer.js` and `src/styles.css`, with image resources in `assets/`.
 
-## Important limitations
+The desktop renderer cannot simply be opened as a website: it expects the Electron preload bridge (`window.schoology`) for authentication, Schoology API requests, file pickers, downloads/uploads, notifications, updater actions, and window chrome. A static Vercel site does not provide those Electron APIs. The browser preview therefore does not pretend to sign in or display fabricated course data.
 
-This is stage 1 of a conversion, **not a complete working Schoology client**. The Courses, Groups, Upcoming, Messages, and Resources pages are clearly labeled placeholders. It does not sign in to Schoology, fetch private school data, upload files, or send messages. It never asks for or stores a Schoology password or OAuth token.
+## Current browser preview
 
-Electron features such as `ipcRenderer`, the `window.schoology` preload bridge, local file dialogs, desktop notifications, and the desktop updater cannot run on a normal static website. Later stages need to replace individual features with browser-compatible mechanisms. Any private API credentials must stay on a trusted server and must never be placed in public frontend JavaScript.
+- Responsive navigation for Home, Courses, Groups, Upcoming, Messages, Resources, and Settings
+- Light/dark theme toggle saved in this browser
+- Official Schoology links for account access
+- No Schoology passwords or tokens requested or stored
+- No build step or GitHub Actions workflow required
 
-## Preview locally
+The content pages are explicitly placeholders, not a functioning Schoology client. See [the feasibility audit](docs/desktop-port-web-feasibility.md) for what can and cannot move to the browser.
 
-Open `index.html` in a modern browser. The project uses plain HTML, CSS, and JavaScript.
+## Deploy on Vercel
 
-## Deploy to GitHub Pages
+The repository is configured for static deployment. Import `tling0001/SchoologyMobileWeb` into Vercel and use the repository root as the project root. No framework preset, build command, or output directory is needed for this plain HTML/CSS/JavaScript site. Vercel will redeploy from the connected Git repository on future pushes.
 
-1. Create a **new** GitHub repository for this website.
-2. Upload the contents of this folder to the repository root and make your first commit.
-3. Open **Settings → Pages** and select **GitHub Actions** as the build/deployment source.
-4. The included workflow deploys the static site when you push to the default branch. You can also run it manually from **Actions**.
+## Next implementation stages
 
-No changes are made to the original desktop repository by this ZIP.
+1. Bring over the original desktop UI styles and assets with their licenses/paths preserved.
+2. Replace Electron-only operations behind a browser capability layer; keep unsupported operations disabled or linked to Schoology.
+3. Evaluate a supported, secure authentication and data-access route before implementing real course, group, calendar, message, or resource data.
+4. Add real features incrementally only after authentication, CORS, privacy, and API permission constraints are resolved.
 
-## Suggested next stages
-
-1. **Stage 2 — Browser feasibility:** audit every Electron bridge call and sort features into browser-only, server-required, or unavailable categories.
-2. **Stage 3 — Authentication:** establish a supported, secure authentication flow without exposing secrets or relying on blocked cross-origin requests.
-3. **Stage 4 — Real data:** connect course/group/profile data through a permitted browser or backend path and replace the placeholders incrementally.
-4. **Stage 5 — Feature parity:** assignments, resources, messages, calendar, uploads, theme, and responsive refinements.
+Do not place private API credentials or session tokens in frontend JavaScript. Do not collect Schoology passwords in this website.

@@ -118,14 +118,14 @@ function schoolLoginDomain(school){
   return '';
 }
 async function startSchoolBrowserLogin(){
-  state.loading=true;state.error='';render();
-  try{const domain=schoolLoginDomain(state.school);if(!domain)throw new Error('This school did not provide a valid login domain.');state.auth=await A.loginSchoolBrowser({domain});await afterLogin();}
+  state.loading=true;state.error='';state.schoolOAuthUrl='';render();
+  try{const domain=schoolLoginDomain(state.school);if(!domain)throw new Error('This school did not provide a valid login domain.');if(A.platform==='web'){state.schoolOAuthUrl=await A.createSchoolOAuthUrl({domain});if(!state.schoolOAuthUrl)throw new Error('Schoology did not return an authorization URL.');state.loading=false;state.screen='externalSelect';render();return;}state.auth=await A.loginSchoolBrowser({domain});await afterLogin();}
   catch(e){state.loading=false;state.error=e.message||'Browser sign-in failed.';render();}
 }
 
 function externalSelect(){
-  const name=state.school?.title||'School';
-  return `<div class="login loginAnimated"><button id="back" class="back" ${state.loading?'disabled':''}>${officialBackIcon()}</button><img class="logo small" src="assets/logo_schoology.png"><div class="loginBody"><div class="selected">${esc(name)}</div>${state.loading?`<div class="qrAuthorizationLoading"><img src="assets/android_loading_spinner_72.gif" alt=""><p>Continue signing in in your browser…</p></div>`:`<button id="browserLogin" class="primary">Try browser sign-in again</button>`}</div>${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`
+  const name=state.school?.title||'School',web=A.platform==='web'&&!!state.schoolOAuthUrl;
+  return `<div class="login loginAnimated"><button id="back" class="back" ${state.loading?'disabled':''}>${officialBackIcon()}</button><img class="logo small" src="assets/logo_schoology.png"><div class="loginBody"><div class="selected">${esc(name)}</div>${state.loading?`<div class="qrAuthorizationLoading"><img src="assets/android_loading_spinner_72.gif" alt=""><p>Preparing Schoology sign-in…</p></div>`:web?`<div class="schoolOAuthNotice"><strong>Experimental / beta feature</strong><p>District sign-in is experimental. Copy the complete URL below <b>before pressing Approve</b> on the Schoology authorization page. After you sign in, Schoology may try to open a <code>schoology://</code> link, which this web app cannot handle. Paste the copied URL back into Schoology to continue.</p><textarea id="schoolOAuthUrl" class="schoolOAuthUrl" readonly>${esc(state.schoolOAuthUrl)}</textarea><button id="copySchoolOAuthUrl" class="secondary">Copy authorization URL</button><button id="browserLogin" class="primary">Open school sign-in in new tab</button></div>`:`<button id="browserLogin" class="primary">Try browser sign-in again</button>`}</div>${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`
 }
 
 function qr(){return `<div class="qr loginAnimated"><button id="back" class="back" ${state.loading?'disabled':''}>${officialBackIcon()}</button><h1>QR Code Login</h1>${state.loading?`<div class="qrAuthorizationLoading"><img src="assets/android_loading_spinner_72.gif" alt=""><p>Signing in to Schoology…</p></div>`:`<p>Scan Your Code</p><video id="video" autoplay playsinline muted></video><canvas id="canvas"></canvas><p class="qrhint">Point your camera at the QR code shown in Schoology.</p>`}${state.error?`<div class="error">${esc(state.error)}</div>`:''}</div>`}
@@ -317,7 +317,8 @@ function bind(){
   }
 
   const browserLogin=document.getElementById('browserLogin');
-  if(browserLogin)browserLogin.onclick=()=>{void startSchoolBrowserLogin()};
+  if(browserLogin)browserLogin.onclick=async()=>{if(A.platform==='web'&&state.schoolOAuthUrl){try{await A.openExternal(state.schoolOAuthUrl)}catch(e){state.error=e.message||'Unable to open the school sign-in page.';render()}return}void startSchoolBrowserLogin()};
+  document.getElementById('copySchoolOAuthUrl')?.addEventListener('click',async()=>{const field=document.getElementById('schoolOAuthUrl');if(!field)return;field.focus();field.select();field.setSelectionRange(0,field.value.length);try{await navigator.clipboard.writeText(field.value);const b=document.getElementById('copySchoolOAuthUrl');if(b)b.textContent='Authorization URL copied'}catch{try{document.execCommand('copy');const b=document.getElementById('copySchoolOAuthUrl');if(b)b.textContent='Authorization URL copied'}catch{state.error='Select and copy the full URL manually before pressing Approve.';render()}}});
   const si=document.getElementById('signIn');if(si)si.onclick=async()=>{const user=document.getElementById('user')?.value||'',password=document.getElementById('pass')?.value||'';state.error='';if(!user||!password){state.error='Enter your username or email and password.';render();return}si.disabled=true;si.textContent='Logging you in…';try{state.auth=await A.loginCredentials({user,password,schoolId:state.school?.id??null});await afterLogin()}catch(e){state.error=e.message||'Login failed.';render()}};
 
   const shade=document.getElementById('drawerShade'),drawer=document.getElementById('drawer');

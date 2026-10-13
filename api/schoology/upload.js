@@ -5,7 +5,7 @@ const MAX_FILE_BYTES = 3 * 1024 * 1024;
 async function parseMultipart(req) {
   return new Promise((resolve, reject) => {
     let bb;
-    try { bb = Busboy({ headers: req.headers, limits: { files: 1, fields: 4, fileSize: MAX_FILE_BYTES } }); }
+    try { bb = Busboy({ headers: req.headers, limits: { files: 1, fields: 6, fileSize: MAX_FILE_BYTES } }); }
     catch { reject(S.httpError(400, 'Choose a file to upload.')); return; }
     const fields = {};
     let file = null, filename = '', mime = 'application/octet-stream', tooLarge = false, failed = false;
@@ -33,9 +33,8 @@ async function handler(req, res) {
   if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
   try {
     S.checkOrigin(req);
-    const session = S.getSession(req);
-    if (!session) { S.clearSessionCookie(res); throw S.httpError(401, 'Please sign in to Schoology first.'); }
     const { fields, file, filename, mime } = await parseMultipart(req);
+    const session = S.clientSession(fields);
     const fileId = await S.uploadSchoologyFile(session, file, filename, mime);
     if (fields.purpose === 'assignment') {
       const sectionId = String(fields.sectionId || ''), assignmentId = String(fields.assignmentId || '');
@@ -46,7 +45,6 @@ async function handler(req, res) {
     }
     return S.send(res, 200, { fileId: String(fileId), filename });
   } catch (error) {
-    if (error.statusCode === 401) S.clearSessionCookie(res);
     return S.send(res, error.statusCode || 502, { error: S.safeMessage(error) });
   }
 }

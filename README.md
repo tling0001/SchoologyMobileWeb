@@ -6,8 +6,7 @@ This repository uses the original Schoology Desktop Port renderer, CSS, and imag
 
 - Original desktop renderer and styles from `tling0001/schoology-for-desktop-port` version `2026.06.0-port.168`
 - Schoology username/password login and QR-code login run through Vercel functions.
-- OAuth request signing and access tokens remain server-side.
-- An encrypted, eight-hour `HttpOnly; SameSite=Strict` cookie carries the session; passwords are not stored.
+- OAuth request signing and the consumer secret remain server-side. User OAuth tokens persist in browser `localStorage` and are sent in same-origin request bodies to the API adapter, never in URLs or cookies. Passwords are not stored.
 - Authenticated API requests (course data, groups, messages, resources, grades, and calendar endpoints used by the renderer) are proxied through `/api/schoology`.
 - File attachments and assignment file submissions use `/api/schoology/upload`. The first stage limits files to 3 MB because of Vercel's serverless request-size ceiling.
 - Authenticated downloads are proxied through `/api/schoology/download` for HTTPS Schoology subdomains only.
@@ -20,11 +19,10 @@ Configure these in **Vercel → Project → Settings → Environment Variables**
 | --- | --- |
 | `SCHOOLOGY_CONSUMER_KEY` | Approved Schoology API consumer key used by the existing app |
 | `SCHOOLOGY_CONSUMER_SECRET` | Corresponding API consumer secret; server-side only |
-| `SESSION_ENCRYPTION_KEY` | Random 32-byte key used to encrypt session cookies |
 | `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint used for login/search rate limiting |
 | `UPSTASH_REDIS_REST_TOKEN` | Private Upstash Redis REST token |
 
-Generate a session key locally with `openssl rand -base64 32`, then paste the output into Vercel. Do not commit it. Set up an Upstash Redis database and copy its REST URL and REST token into Vercel. Production login and school search intentionally stay disabled until rate limiting is configured.
+Set up an Upstash Redis database and copy its REST URL and REST token into Vercel. Production login and school search intentionally stay disabled until rate limiting is configured. `SESSION_ENCRYPTION_KEY` is no longer required because this version does not create server-side login cookies.
 
 Use Schoology API credentials only if you are authorized to use them. Keep them in Vercel's encrypted environment settings, never in client JavaScript or public files. After changing environment variables, redeploy the Vercel project.
 

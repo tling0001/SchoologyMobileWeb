@@ -12,8 +12,7 @@ module.exports = async function handler(req, res) {
     if (!user || user.length > 254 || !password || password.length > 1024) throw S.httpError(400, 'Enter a valid username and password.');
     if (schoolId && !/^\d{1,20}$/.test(schoolId)) throw S.httpError(400, 'Invalid school selection.');
     const session = await S.performLogin(user, password, schoolId);
-    S.setSessionCookie(res, session);
-    return S.send(res, 200, { authenticated: true, user: session.user });
+    return S.send(res, 200, { authenticated: true, ...session });
   } catch (error) {
     return S.send(res, error.statusCode || 502, { error: S.safeMessage(error) });
   }

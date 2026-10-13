@@ -2,13 +2,15 @@
 const { Readable } = require('node:stream');
 const S = require('../../lib/schoology-server');
 module.exports = async function handler(req, res) {
-  if (req.method !== 'GET') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'GET' });
+  if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
   try {
-    const session = S.getSession(req);
-    if (!session) { S.clearSessionCookie(res); throw S.httpError(401, 'Please sign in to Schoology first.'); }
-    const raw = String(req.query?.url || '');
+    S.checkOrigin(req);
+    const input = S.parseBody(req);
+    const session = S.clientSession(input);
+    const raw = String(input.url || '');
     if (!raw || raw.length > 4096) throw S.httpError(400, 'A valid Schoology file URL is required.');
-    let url; try { url = new URL(raw); } catch { throw S.httpError(400, 'Invalid Schoology file URL.'); }
+    let url;
+    try { url = new URL(raw); } catch { throw S.httpError(400, 'Invalid Schoology file URL.'); }
     const isSchoologyHost = host => host === 'schoology.com' || host.endsWith('.schoology.com');
     if (url.protocol !== 'https:' || !isSchoologyHost(url.hostname.toLowerCase())) throw S.httpError(400, 'Only HTTPS Schoology file links can be downloaded.');
     let response = null;
@@ -23,15 +25,13 @@ module.exports = async function handler(req, res) {
       url = next;
     }
     if (!response || response.status < 200 || response.status >= 300 || !response.body) throw S.httpError(502, 'Schoology file download failed.');
-    const name = String(req.query?.filename || url.pathname.split('/').pop() || 'Schoology-file').replace(/[\\/\r\n"]/g, '_').slice(0, 180) || 'Schoology-file';
+    const name = String(input.filename || url.pathname.split('/').pop() || 'Schoology-file').replace(/[\\/\r\n"]/g, '_').slice(0, 180) || 'Schoology-file';
     res.statusCode = 200;
     res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
     res.setHeader('Content-Disposition', 'attachment; filename="' + name.replace(/"/g, '') + '"');
     res.setHeader('Cache-Control', 'no-store, private');
-    const length = response.headers.get('content-length'); if (length) res.setHeader('Content-Length', length);
+    const length = response.headers.get('content-length');
+    if (length) res.setHeader('Content-Length', length);
     Readable.fromWeb(response.body).pipe(res);
-  } catch (error) {
-    if (error.statusCode === 401) S.clearSessionCookie(res);
-    return S.send(res, error.statusCode || 502, { error: S.safeMessage(error) });
-  }
+  } catch (error) { return S.send(res, error.statusCode || 502, { error: S.safeMessage(error) }); }
 };

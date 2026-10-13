@@ -9,8 +9,7 @@ module.exports = async function handler(req, res) {
     const qrData = String(body.qrData || '').trim();
     if (!qrData || qrData.length > 4096) throw S.httpError(400, 'Scan a valid Schoology QR code and try again.');
     const session = await S.performLogin('', '', '', qrData);
-    S.setSessionCookie(res, session);
-    return S.send(res, 200, { authenticated: true, user: session.user });
+    return S.send(res, 200, { authenticated: true, ...session });
   } catch (error) {
     return S.send(res, error.statusCode || 502, { error: S.safeMessage(error) });
   }

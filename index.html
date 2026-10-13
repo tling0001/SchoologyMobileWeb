@@ -1,88 +1,19 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#002137">
-  <meta name="description" content="A browser-based first-stage Schoology web port prototype.">
-  <title>Schoology Web Port</title>
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#002137">
+<meta name="description" content="Schoology browser port using the original Schoology Desktop Port renderer, stylesheet, and image assets.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' https://cdn.jsdelivr.net; media-src 'self' https: blob:; connect-src 'self' https: http: blob:;">
+<title>Schoology</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app">
-    <header class="toolbar">
-      <button class="icon-button" id="menuButton" aria-label="Open navigation" aria-expanded="false">☰</button>
-      <a class="brand" href="#home" aria-label="Schoology home"><span class="brand-mark">S</span><span>Schoology</span></a>
-      <div class="toolbar-spacer"></div>
-      <button class="icon-button" id="themeButton" aria-label="Toggle light and dark theme" title="Toggle theme">◐</button>
-      <a class="sign-in" href="https://app.schoology.com/" target="_blank" rel="noopener noreferrer">Open Schoology ↗</a>
-    </header>
-
-    <div class="scrim" id="scrim"></div>
-    <aside class="drawer" id="drawer" aria-label="Main navigation">
-      <div class="drawer-heading">
-        <div class="avatar">S</div>
-        <div><strong>Schoology</strong><small>Web port preview</small></div>
-      </div>
-      <nav class="nav-list">
-        <button class="nav-item active" data-page="home"><span>⌂</span> Home</button>
-        <button class="nav-item" data-page="courses"><span>▦</span> Courses</button>
-        <button class="nav-item" data-page="groups"><span>♧</span> Groups</button>
-        <button class="nav-item" data-page="upcoming"><span>▣</span> Upcoming</button>
-        <button class="nav-item" data-page="messages"><span>✉</span> Messages</button>
-        <button class="nav-item" data-page="resources"><span>▤</span> Resources</button>
-        <div class="nav-divider"></div>
-        <button class="nav-item" data-page="settings"><span>⚙</span> Settings</button>
-      </nav>
-      <div class="drawer-footer">Stage 1 · Browser shell</div>
-    </aside>
-
-    <main id="main" tabindex="-1">
-      <section class="page active" data-view="home">
-        <div class="page-heading"><div><p class="eyebrow">SCHOOL</p><h1>Home</h1><p class="subheading">Your learning space, in the browser.</p></div><span class="stage-chip">Web preview</span></div>
-        <div class="welcome-card">
-          <div class="welcome-copy"><p class="eyebrow">WELCOME</p><h2>Schoology, reimagined for the web</h2><p>This first stage establishes a responsive browser interface and deployment-ready project structure. Connect to your real Schoology account using the official site.</p><a class="button primary" href="https://app.schoology.com/" target="_blank" rel="noopener noreferrer">Sign in to Schoology ↗</a></div>
-          <div class="welcome-art" aria-hidden="true"><div class="art-circle circle-one"></div><div class="art-circle circle-two"></div><div class="art-book">S</div></div>
-        </div>
-        <div class="section-heading"><h2>Explore</h2><span>Preview navigation</span></div>
-        <div class="card-grid">
-          <button class="feature-card" data-go="courses"><span class="feature-icon blue">▦</span><strong>Courses</strong><small>Course list and learning materials</small><span class="card-arrow">→</span></button>
-          <button class="feature-card" data-go="groups"><span class="feature-icon teal">♧</span><strong>Groups</strong><small>Groups and shared resources</small><span class="card-arrow">→</span></button>
-          <button class="feature-card" data-go="upcoming"><span class="feature-icon amber">▣</span><strong>Upcoming</strong><small>Assignments and events</small><span class="card-arrow">→</span></button>
-          <button class="feature-card" data-go="messages"><span class="feature-icon violet">✉</span><strong>Messages</strong><small>Schoology messages</small><span class="card-arrow">→</span></button>
-        </div>
-        <div class="notice"><span class="notice-icon">ⓘ</span><div><strong>What works in this stage?</strong><p>Responsive navigation, page switching, theme toggle, and official Schoology sign-in links. School data and account actions are not connected yet.</p></div></div>
-      </section>
-
-      <section class="page" data-view="courses">
-        <div class="page-heading"><div><p class="eyebrow">LEARNING</p><h1>Courses</h1><p class="subheading">Your courses will appear here when browser-compatible account integration is added.</p></div></div>
-        <div class="empty-state"><span class="empty-icon">▦</span><h2>Course integration is a next step</h2><p>This page is currently a functional navigation placeholder. It does not fetch or invent course information.</p><a class="button primary" href="https://app.schoology.com/" target="_blank" rel="noopener noreferrer">View courses on Schoology ↗</a></div>
-      </section>
-      <section class="page" data-view="groups">
-        <div class="page-heading"><div><p class="eyebrow">COMMUNITY</p><h1>Groups</h1><p class="subheading">A place for group pages and shared materials.</p></div></div>
-        <div class="empty-state"><span class="empty-icon">♧</span><h2>Group integration is a next step</h2><p>Group lists, discussions, and resources need a browser-safe data and authentication strategy.</p><a class="button primary" href="https://app.schoology.com/" target="_blank" rel="noopener noreferrer">Open Schoology ↗</a></div>
-      </section>
-      <section class="page" data-view="upcoming">
-        <div class="page-heading"><div><p class="eyebrow">PLANNER</p><h1>Upcoming</h1><p class="subheading">Assignments and events can be added in a later integration stage.</p></div></div>
-        <div class="empty-state"><span class="empty-icon">▣</span><h2>No live schedule connected</h2><p>This preview intentionally shows no sample events, so it won't be mistaken for your real Schoology schedule.</p><a class="button primary" href="https://app.schoology.com/" target="_blank" rel="noopener noreferrer">View Schoology calendar ↗</a></div>
-      </section>
-      <section class="page" data-view="messages">
-        <div class="page-heading"><div><p class="eyebrow">COMMUNICATION</p><h1>Messages</h1><p class="subheading">Messaging UI and account integration are not connected yet.</p></div></div>
-        <div class="empty-state"><span class="empty-icon">✉</span><h2>Messages are not connected</h2><p>Reading and sending messages will require a supported authentication and API approach.</p><a class="button primary" href="https://app.schoology.com/" target="_blank" rel="noopener noreferrer">Open Schoology messages ↗</a></div>
-      </section>
-      <section class="page" data-view="resources">
-        <div class="page-heading"><div><p class="eyebrow">LIBRARY</p><h1>Resources</h1><p class="subheading">A future home for personal and shared resources.</p></div></div>
-        <div class="empty-state"><span class="empty-icon">▤</span><h2>Resource integration is a next step</h2><p>Files and resource listings will need secure browser-compatible access.</p><a class="button primary" href="https://app.schoology.com/" target="_blank" rel="noopener noreferrer">Open Schoology resources ↗</a></div>
-      </section>
-      <section class="page" data-view="settings">
-        <div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1>Settings</h1><p class="subheading">Browser-only preview settings.</p></div></div>
-        <div class="settings-card"><div><strong>Appearance</strong><p>Choose a light or dark look for this prototype.</p></div><button class="button secondary" id="settingsThemeButton">Toggle theme</button></div>
-        <div class="settings-card"><div><strong>Account</strong><p>This prototype does not store Schoology credentials.</p></div><a class="button secondary" href="https://app.schoology.com/" target="_blank" rel="noopener noreferrer">Open official sign-in ↗</a></div>
-        <p class="fine-print">Theme preference is saved in this browser only. No Schoology password or token is requested or stored by this prototype.</p>
-      </section>
-      <footer class="page-footer">Schoology Web Port · Stage 1 · Independent prototype</footer>
-    </main>
-  </div>
-  <script src="app.js"></script>
+<div id="app"></div>
+<div id="startupSplash" class="androidSplash appStartupSplash" aria-label="Loading Schoology"><img class="androidSplashLogo" src="assets/android_loading_logo.png" alt="Schoology"><img class="androidSplashSpinner" src="assets/android_loading_spinner_72.gif" alt=""></div>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="browser-bridge.js"></script>
+<script src="appboot.js"></script>
 </body>
 </html>

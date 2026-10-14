@@ -40,6 +40,10 @@ module.exports = async function handler(req, res) {
     if (!Number.isSafeInteger(userId) || userId <= 0) throw S.httpError(502, 'Schoology did not return a valid user profile.');
     return S.send(res, 200, { oauth_token: access.oauth_token, oauth_token_secret: access.oauth_token_secret, user, userId });
   } catch (error) {
-    if (!res.headersSent) return S.send(res, error.statusCode || 502, { error: S.safeMessage(error) });
+    console.error('[school-oauth-exchange] failed', error);
+    if (!res.headersSent) {
+      const safe = error && Number.isInteger(error.statusCode) ? S.safeMessage(error) : 'The sign-in server failed unexpectedly while exchanging the school authorization. Check the Vercel function logs for school-oauth-exchange.';
+      return S.send(res, error.statusCode || 502, { error: safe });
+    }
   }
 };

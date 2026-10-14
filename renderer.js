@@ -629,7 +629,7 @@ async function getCourseNavigationPermissions(sectionId,userId){
  const userGradeBody=by[`/v1/users/${userId}/grades`]||'';
  const attendanceBody=by[`/v1/sections/${sectionId}/attendance`]||'';
  const documentsBody=by[`/v1/sections/${sectionId}/documents`]||'';
- const sectionDocumentsPost=/\\bpost\\b/i.test(documentsBody);
+ const sectionDocumentsPost=/\bpost\b/i.test(documentsBody);
  if(state.courseView==='course'&&String(state.selectedCourse?.id||state.selectedCourse?.section_id||state.selectedCourse?.sectionId)===String(sectionId)){state.courseCanAddResources=sectionDocumentsPost;syncToolbar()}
  return {sectionGradesPut:sectionGradeBody.includes('put'),userGradesGet:userGradeBody.includes('get'),attendanceGet:attendanceBody.includes('get'),sectionDocumentsPost};
 }

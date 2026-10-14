@@ -870,7 +870,7 @@ async function openAssignmentComments(sectionId,assignmentId,assignment){
     }).join('');
     c.innerHTML=`<div class="commentsAndroidList">${cards||'<div class="androidEmptyState">No comments yet.</div>'}</div>`;
     await hydrateMediaImages(c);
-    document.querySelectorAll('[data-comment-like]').forEach(btn=>btn.onclick=async()=>{const id=btn.dataset.commentLike;if(!id)return;const liked=btn.dataset.liked==='1';try{await A.api({path:`like/${assignmentId}/comment/${id}`,method:'POST',params:{like_action:!liked},json:true});btn.dataset.liked=liked?'0':'1';btn.textContent=liked?'Like':'Unlike'}catch(e){alert('Unable to update like: '+e.message)}});
+    document.querySelectorAll('[data-comment-like]').forEach(btn=>btn.onclick=async()=>{const id=btn.dataset.commentLike;if(!id)return;const liked=btn.dataset.liked==='1';try{await A.api({path:`like/${commentOnId}/comment/${id}`,method:'POST',params:{like_action:!liked},json:true});btn.dataset.liked=liked?'0':'1';btn.textContent=liked?'Like':'Unlike'}catch(e){alert('Unable to update like: '+e.message)}});
     document.querySelectorAll('[data-comment-user]').forEach(btn=>btn.onclick=()=>{const uid=btn.dataset.commentUser;if(uid){state.profileUser={id:uid};state.toolbarTitle=btn.textContent||'Profile';openProfileById(uid,btn.textContent||'Profile')}});
     document.querySelectorAll('[data-comment-reply]').forEach(btn=>btn.onclick=()=>openAssignmentCommentComposer(sectionId,commentOnId,btn.dataset.commentReply));
   }catch(e){c.innerHTML=`<div class="error apiError"><b>Schoology could not load comments.</b><br>${esc(e.message)}</div>`}

@@ -1362,6 +1362,7 @@ async function loadCourseApps(course,targetEl){
     if(!href&&(!Number.isSafeInteger(appId)||appId<=0)){el.innerHTML='<div class="error apiError">This course app did not provide a launch target.</div>';return}
     try{
       openWithPressTransition(b,()=>{});
+      if(A.platform==='web'){if(!href)throw new Error('Schoology did not provide a course-app launch URL.');const result=await A.launchCourseApp({launchUrl:href,appId:Number.isSafeInteger(appId)&&appId>0?appId:undefined,sectionId:Number(sid)});if(result)throw new Error(String(result));return;}
       const launchResult=await A.launchCourseApp({launchUrl:href,appId:Number.isSafeInteger(appId)&&appId>0?appId:undefined,sectionId:Number(sid)});
       const url=launchResult?.url||launchResult?.launchTokenUrl||launchResult?.data?.url||launchResult?.data?.launchTokenUrl||launchResult?.launch_url||launchResult?.launchUrl||href;
       if(!url)throw new Error('Schoology did not return a course-app launch URL.');

@@ -16,7 +16,7 @@ module.exports=async function handler(req,res){
   const key=P.subscriptionKey(uid,subscription.endpoint);
   if(req.method==='DELETE'){await P.redis(['DEL',key]);return S.send(res,200,{ok:true});}
   P.vapid();
-  const notices=await S.proxyApi(session,{path:'notifications',method:'GET',params:{}});
+  const notices=await S.proxyApi(session,{path:'notifications/notifications',method:'GET',params:{}});
   const raw=notices?.notification??notices?.notifications??notices?.data?.notification??notices?.data?.notifications??[];
   const arr=Array.isArray(raw)?raw:(raw?.notification||raw?.notifications||raw?.items||[]);
   const seen=[...new Set(arr.map(n=>String(n.id??n.notification_id??n.notificationId??'')).filter(Boolean))].slice(0,100);

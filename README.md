@@ -4,13 +4,13 @@ This repository uses the original Schoology Desktop Port renderer, CSS, and imag
 
 ## Current browser adapter
 
-- Original desktop renderer and styles from `tling0001/schoology-for-desktop-port` version `2026.06.0-port.168`
+- Original desktop renderer and styles from `tling0001/schoology-for-desktop-port` version `2026.06.0-port.178`
 - Installable PWA metadata, service-worker app-shell caching, and iOS home-screen launch-screen metadata; the Apple launch splash uses the Schoology loading-screen background and wordmark without the spinner, while the in-app animated loading splash remains unchanged.
 - Schoology username/password login and QR-code login run through Vercel functions.
 - OAuth request signing and the built-in desktop-port consumer credentials remain in server-side code and are never sent to browser JavaScript. User OAuth tokens persist in browser `localStorage` and are sent in same-origin request bodies to the API adapter, never in URLs or cookies. Passwords are not stored.
 - Authenticated API requests (course data, groups, messages, resources, grades, and calendar endpoints used by the renderer) are proxied through `/api/schoology`.
 - File attachments and assignment file submissions use `/api/schoology/upload`. The first stage limits files to 3 MB because of Vercel's serverless request-size ceiling.
-- Authenticated downloads are proxied through `/api/schoology/download` for HTTPS Schoology subdomains only.
+- Authenticated downloads are proxied through `/api/schoology/download` for HTTPS Schoology/school hosts and signed Schoology storage URLs.
 
 ## Required Vercel environment variables
 
@@ -26,7 +26,7 @@ Configure these in **Vercel → Project → Settings → Environment Variables**
 | `VAPID_SUBJECT` | Contact URI, such as `mailto:you@example.com` |
 | `CRON_SECRET` | Random secret authorizing Vercel scheduled-function requests |
 
-Set up an Upstash Redis database and copy its REST URL and REST token into Vercel. Generate VAPID keys with `npx web-push generate-vapid-keys`, then set both keys in Vercel. Generate `PUSH_SESSION_ENCRYPTION_KEY` with a cryptographically secure random 32-byte value (hex encoded), and generate a separate random `CRON_SECRET`. The scheduled `/api/push/poll` function checks for new Schoology notifications every five minutes and sends Web Push notifications when the page is closed; Vercel must support scheduled functions at that cadence. Keep all private values in server-side configuration. Production login and school search intentionally stay disabled until rate limiting is configured. `SESSION_ENCRYPTION_KEY` is no longer required because this version does not create server-side login cookies.
+Set up an Upstash Redis database and copy its REST URL and REST token into Vercel. Generate VAPID keys with `npx web-push generate-vapid-keys`, then set both keys in Vercel. Generate `PUSH_SESSION_ENCRYPTION_KEY` with a cryptographically secure random 32-byte value (hex encoded), and generate a separate random `CRON_SECRET`. The scheduled `/api/push/poll` function checks for new Schoology notifications every five minutes and sends Web Push notifications when the page is closed; Vercel must support scheduled functions at that cadence. The service worker handles incoming push events and notification clicks independently of whether the page is open. Keep all private values in server-side configuration. Production login and school search intentionally stay disabled until rate limiting is configured. `SESSION_ENCRYPTION_KEY` is no longer required because this version does not create server-side login cookies.
 
 The built-in Schoology consumer credentials are only referenced by the server-side OAuth signer; never copy them into browser JavaScript or public assets. Keep VAPID private keys, encryption keys, Redis tokens, and cron secrets in Vercel's encrypted environment settings. After changing environment variables, redeploy the Vercel project.
 

@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
     if (!token || token.length > 512 || !tokenSecret || tokenSecret.length > 1024) throw S.httpError(400, 'The temporary school sign-in session expired. Start school sign-in again.');
     let authorizationUrl;
     try { authorizationUrl = new URL(callback); } catch { throw S.httpError(400, 'Paste the final browser address shown after school sign-in finishes.'); }
-    if (authorizationUrl.protocol !== 'https:' || !authorizationUrl.pathname.replace(/\\/+$/, '').endsWith('/mobile_login_success')) {
+    if (authorizationUrl.protocol !== 'https:' || !authorizationUrl.pathname.replace(/\/+$/, '').endsWith('/mobile_login_success')) {
       throw S.httpError(400, 'School sign-in has not returned its completion address yet. Paste the final browser address shown after school sign-in finishes.');
     }
     const requestToken = authorizationUrl.searchParams.get('oauth_token') || '';

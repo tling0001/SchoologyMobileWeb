@@ -31,7 +31,17 @@ module.exports = async function handler(req, res) {
     const accessResponse = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/oauth/access_token', {}, { sign: true, clientIdentity: true, authToken: token, tokenSecret });
     if (accessResponse.status < 200 || accessResponse.status >= 300) { const detail = String(accessResponse.text || '').replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 180); throw S.httpError(502, detail ? `Schoology could not finish sign-in (HTTP ${accessResponse.status}): ${detail}` : `Schoology could not finish sign-in (HTTP ${accessResponse.status}). Start school sign-in again and retry.`); }
     const access = parseForm(accessResponse.text);
-    if (!access.oauth_token || !access.oauth_token_secret) throw S.httpError(502, 'Schoology returned an invalid access token.');
+    if (!access.oauth_token || !access.oauth_token_secret) {
+      const detail = String(accessResponse.text || '').replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 220);
+      console.error('[school-oauth-exchange] access-token response was not a token form', {
+        status: accessResponse.status,
+        contentType: accessResponse.headers?.get?.('content-type') || '',
+        responsePreview: detail
+      });
+      throw S.httpError(502, detail
+        ? `Schoology did not return an access token: ${detail}`
+        : 'Schoology returned an empty or invalid access-token response. Check the Vercel function logs for school-oauth-exchange.');
+    }
     const userResponse = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/users/me', {}, { sign: true, clientIdentity: true, authToken: access.oauth_token, tokenSecret: access.oauth_token_secret });
     if (userResponse.status < 200 || userResponse.status >= 300) throw S.httpError(502, 'Schoology signed in but could not load your user profile.');
     let user;

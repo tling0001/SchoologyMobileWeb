@@ -789,7 +789,8 @@ function showAssignmentAttachmentDialog(attachments){
   dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.classList.remove('open')},{once:true});
 }
 async function showAssignment(sectionId,assignmentId){
-  const c=document.getElementById('content'); if(!c)return;
+  const ltiLaunchTab=A.platform==='web'?window.open('about:blank','_blank'):null;
+  const c=document.getElementById('content'); if(!c){ltiLaunchTab?.close();return}
   state.toolbarTitle='Assignment'; state.screen='app'; state.assignmentView={sectionId,assignmentId}; state.courseView='course'; state.assignmentTab='info'; state.assignmentCanSubmit=false; state.assignmentIsTeacher=false; state.assignmentSubpage=null; state.submissionMenu=false; state.assignmentAllowComments=false; state.assignmentLandscape=window.matchMedia('(min-width: 801px)').matches; syncToolbar();
   c.innerHTML=`<section class="assignmentPage"><div class="assignmentLoading loading"><img class="androidInlineSpinner" src="assets/android_loading_spinner_72.gif" alt=""><span>Loading assignment…</span></div></section>`;
   try{
@@ -808,11 +809,11 @@ async function showAssignment(sectionId,assignmentId){
     if(assignmentType==='lti_submission' && assignmentWebUrl){
       if(A.platform==='web'){
         const launchMatch=String(assignmentWebUrl).match(/(?:https:\/\/api\.schoology\.com)?\/?v?2?\/?sections\/(\d+)\/applications\/(\d+)\/launch\/?$/i);
-        const tab=window.open('about:blank','_blank');
-        try{let target=assignmentWebUrl;if(launchMatch){const launch=await A.launchCourseApp({sectionId:Number(launchMatch[1]),appId:Number(launchMatch[2]),launchUrl:assignmentWebUrl});target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||'';}if(!target)throw new Error('Schoology did not return an LTI launch URL.');const u=new URL(target,location.href);if(u.protocol!=='https:')throw new Error('Only secure HTTPS LTI links can be opened.');if(tab&&!tab.closed)tab.location.href=u.href;else window.open(u.href,'_blank','noopener,noreferrer');}catch(error){tab?.close();throw error;}
+        try{let target=assignmentWebUrl;if(launchMatch){const launch=await A.launchCourseApp({sectionId:Number(launchMatch[1]),appId:Number(launchMatch[2]),launchUrl:assignmentWebUrl});target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||'';}if(!target)throw new Error('Schoology did not return an LTI launch URL.');const u=new URL(target,location.href);if(u.protocol!=='https:')throw new Error('Only secure HTTPS LTI links can be opened.');if(ltiLaunchTab&&!ltiLaunchTab.closed)ltiLaunchTab.location.href=u.href;else throw new Error('Your browser blocked the LTI assignment tab. Allow pop-ups for this site and try again.');}catch(error){ltiLaunchTab?.close();throw error;}
       }else showEmbeddedWeb(assignmentWebUrl,at.title||'Assignment',{allowBrowser:false,lti:true});
       return;
     }
+    ltiLaunchTab?.close();
     const html=typeof at.description==='string'?at.description:'';
     const attachments=at.attachments||at.attachment||{};
     const myEnrollment=(enrollResp.enrollment||enrollResp.enrollments||[])[0]||{};

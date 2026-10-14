@@ -22,14 +22,14 @@ module.exports = async function handler(req, res) {
     const token = String(body.oauth_token || '');
     const tokenSecret = String(body.oauth_token_secret || '');
     const callback = String(body.callbackUrl || '').trim();
-    if (!token || token.length > 512 || !tokenSecret || tokenSecret.length > 1024) throw S.httpError(400, 'The temporary school sign-in session is missing. Generate a new authorization URL.');
+    if (!token || token.length > 512 || !tokenSecret || tokenSecret.length > 1024) throw S.httpError(400, 'The temporary school sign-in session expired. Start school sign-in again.');
     let authorizationUrl;
-    try { authorizationUrl = new URL(callback); } catch { throw S.httpError(400, 'Paste the full HTTPS /oauth/authorize URL copied from the browser address bar before pressing Approve.'); }
-    if (authorizationUrl.protocol !== 'https:' || !authorizationUrl.pathname.replace(/\\/+$/, '').endsWith('/oauth/authorize')) throw S.httpError(400, 'Paste the HTTPS /oauth/authorize URL from the address bar, not a schoology:// callback.');
+    try { authorizationUrl = new URL(callback); } catch { throw S.httpError(400, 'Paste the browser address shown in the sign-in guide.'); }
+    if (authorizationUrl.protocol !== 'https:' || !authorizationUrl.pathname.replace(/\\/+$/, '').endsWith('/oauth/authorize')) throw S.httpError(400, 'That address does not match the school sign-in page. Paste the full browser address shown in the guide.');
     const requestToken = authorizationUrl.searchParams.get('oauth_token') || '';
-    if (!requestToken || requestToken !== token) throw S.httpError(400, 'The pasted authorization URL does not match this sign-in attempt. Generate a new URL and copy it from the address bar before pressing Approve.');
+    if (!requestToken || requestToken !== token) throw S.httpError(400, 'That browser address does not match this sign-in attempt. Start school sign-in again and paste the address from the current page.');
     const accessResponse = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/oauth/access_token', {}, { sign: true, clientIdentity: true, authToken: token, tokenSecret });
-    if (accessResponse.status < 200 || accessResponse.status >= 300) throw S.httpError(502, 'Schoology could not complete sign-in. Please generate a new authorization URL and try again.');
+    if (accessResponse.status < 200 || accessResponse.status >= 300) { const detail = String(accessResponse.text || '').replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 180); throw S.httpError(502, detail ? `Schoology could not finish sign-in (HTTP ${accessResponse.status}): ${detail}` : `Schoology could not finish sign-in (HTTP ${accessResponse.status}). Start school sign-in again and retry.`); }
     const access = parseForm(accessResponse.text);
     if (!access.oauth_token || !access.oauth_token_secret) throw S.httpError(502, 'Schoology returned an invalid access token.');
     const userResponse = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/users/me', {}, { sign: true, clientIdentity: true, authToken: access.oauth_token, tokenSecret: access.oauth_token_secret });

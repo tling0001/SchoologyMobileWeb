@@ -4,6 +4,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
   try {
     S.checkOrigin(req);
+    if (req.query?.mode === 'logout') return S.send(res, 200, { ok: true });
     const session = S.clientSession(S.parseBody(req));
     const response = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/users/me', {}, { sign: true, session, clientIdentity: true });
     if (response.status === 401 || response.status === 403) throw S.httpError(401, 'Your Schoology sign-in has expired. Please sign in again.');

@@ -16,7 +16,7 @@ module.exports=async function handler(req,res){
    checked++;
    try{
     const session=P.decryptSession(record.session);
-    const data=await S.proxyApi(session,{path:'notifications',method:'GET',params:{}});
+    const data=await S.proxyApi(session,{path:'notifications/notifications',method:'GET',params:{}});
     const value=data?.notification??data?.notifications??data?.data?.notification??data?.data?.notifications??[];
     const notices=Array.isArray(value)?value:(value?.notification||value?.notifications||value?.items||[]);
     const newest=notices.map(n=>({n,id:String(n.id??n.notification_id??n.notificationId??'')})).filter(x=>x.id);

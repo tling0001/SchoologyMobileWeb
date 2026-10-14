@@ -22,16 +22,22 @@ module.exports = async function handler(req, res) {
       } catch { throw S.httpError(400, 'Invalid school domain for file download.'); }
     }
     const isSchoolHost = host => !!schoolDomain && (host === schoolDomain || host.endsWith('.' + schoolDomain));
+    const isTrustedFileHost = host => isSchoologyHost(host) || isSchoolHost(host) || host === 'amazonaws.com' || host.endsWith('.amazonaws.com') || host === 'cloudfront.net' || host.endsWith('.cloudfront.net');
     if (url.protocol !== 'https:' || !(isSchoologyHost(url.hostname.toLowerCase()) || isSchoolHost(url.hostname.toLowerCase()))) throw S.httpError(400, 'Only HTTPS Schoology or selected-school file links can be downloaded.');
     let response = null;
     for (let depth = 0; depth <= 5; depth++) {
-      const headers = { 'User-Agent': 'okhttp/4.8.0', Accept: '*/*', Cookie: S.MOBILE_COOKIE };
-      const authorization = S.getDownloadAuthorization(session, url.toString());
-      if (authorization) headers.Authorization = authorization;
+      const currentHost=url.hostname.toLowerCase();
+      const schoologyTarget=isSchoologyHost(currentHost)||isSchoolHost(currentHost);
+      const headers = { 'User-Agent': 'okhttp/4.8.0', Accept: '*/*' };
+      if(schoologyTarget){headers.Cookie=S.MOBILE_COOKIE;const authorization=S.getDownloadAuthorization(session,url.toString());if(authorization)headers.Authorization=authorization;}
       response = await fetch(url, { headers, redirect: 'manual', signal: AbortSignal.timeout(60000) });
       if (![301,302,303,307,308].includes(response.status) || !response.headers.get('location')) break;
       const next = new URL(response.headers.get('location'), url);
-      if (next.protocol !== 'https:' || !(isSchoologyHost(next.hostname.toLowerCase()) || isSchoolHost(next.hostname.toLowerCase()))) throw S.httpError(502, 'Schoology redirected to an unsupported file host.');
+      if (next.protocol !== 'https:' || !isTrustedFileHost(next.hostname.toLowerCase())) throw S.httpError(502, 'Schoology redirected to an unsupported file host.');
+      // Never forward OAuth authorization to third-party signed storage URLs.
+      if (!isSchoologyHost(next.hostname.toLowerCase()) && !isSchoolHost(next.hostname.toLowerCase())) {
+        // Subsequent requests are made without Schoology cookies or OAuth headers.
+      }
       url = next;
     }
     if (!response || response.status < 200 || response.status >= 300 || !response.body) throw S.httpError(502, 'Schoology file download failed.');

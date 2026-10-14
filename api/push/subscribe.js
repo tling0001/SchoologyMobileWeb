@@ -2,7 +2,11 @@
 const S=require('../../lib/schoology-server');
 const P=require('../../lib/push-server');
 module.exports=async function handler(req,res){
- if(req.method!=='POST'&&req.method!=='DELETE')return S.send(res,405,{error:'Method not allowed.'},{Allow:'POST, DELETE'});
+ if(req.method==='GET'&&req.query?.mode==='public-key'){
+  try{const {publicKey}=P.vapid();return S.send(res,200,{publicKey},{'Cache-Control':'public, max-age=300'});}
+  catch(e){return S.send(res,e.statusCode||503,{error:S.safeMessage(e)});}
+ }
+ if(req.method!=='POST'&&req.method!=='DELETE')return S.send(res,405,{error:'Method not allowed.'},{Allow:'GET, POST, DELETE'});
  try{
   S.checkOrigin(req);
   const input=S.parseBody(req),session=S.clientSession(input),uid=Number(session.userId||session.user?.id);

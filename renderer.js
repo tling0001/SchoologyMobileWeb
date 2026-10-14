@@ -857,11 +857,11 @@ async function showAssignment(sectionId,assignmentId){
     document.querySelectorAll('[data-assignment-tab]').forEach(b=>b.onclick=()=>openWithPressTransition(b,()=>select(b.dataset.assignmentTab)));
     renderInfo();
     if(state.assignmentLandscape&&canSubmit)await openAssignmentSubmissions(sectionId,assignmentId,at,isTeacher);
-  }catch(e){ c.innerHTML=`<div class="error apiError"><b>Schoology could not load this page.</b><br>${esc(e.message)}</div>`; }
+  }catch(e){ ltiLaunchTab?.close();c.innerHTML=`<div class="error apiError"><b>Schoology could not load this page.</b><br>${esc(e.message)}</div>`; }
 }
 
 async function openAssignmentComments(sectionId,assignmentId,assignment){
-  // Android CommentsResourceV2 passes its CommentOnID (the resolved grade-item ID) to the shared comments resource.
+  // Android uses the assignment's ID for its course/materials assignment-comments resource.
   const commentOnId=Number(assignmentId||assignment?.id)||Number(assignment?.id||0);
   const c=state.assignmentLandscape?(document.getElementById('assignmentTabContent')||document.getElementById('content')):(document.getElementById('assignmentTabContent')||document.getElementById('content'));if(!c)return;
   c.innerHTML='<div class="commentsPage officialComments"><div class="loading"><img class="androidInlineSpinner" src="assets/android_loading_spinner_72.gif" alt=""><span>Loading comments…</span></div></div>';

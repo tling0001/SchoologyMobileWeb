@@ -71,6 +71,27 @@
     });
   }
   function subscribe(type, fn) { listeners[type].add(fn); return () => listeners[type].delete(fn); }
+  function base64UrlBytes(value) { const padded=String(value).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(padded+'='.repeat((4-padded.length%4)%4));return Uint8Array.from(raw,c=>c.charCodeAt(0)); }
+  async function enableBackgroundPush() {
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)) throw new Error('This browser does not support background push notifications.');
+    const auth=requireAuth();
+    const registration=await navigator.serviceWorker.register('/service-worker.js');
+    await navigator.serviceWorker.ready;
+    const response=await fetch('/api/push/public-key',{cache:'no-store'});
+    const keyBody=await readResponse(response);
+    let sub=await registration.pushManager.getSubscription();
+    if(!sub)sub=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:base64UrlBytes(keyBody.publicKey)});
+    await jsonRequest('/api/push/subscribe',{subscription:sub.toJSON(),oauth_token:auth.oauth_token,oauth_token_secret:auth.oauth_token_secret,user:auth.user,userId:auth.userId});
+    return true;
+  }
+  async function disableBackgroundPush() {
+    if(!('serviceWorker' in navigator))return true;
+    const auth=authSession,registration=await navigator.serviceWorker.getRegistration('/service-worker.js');
+    const sub=await registration?.pushManager?.getSubscription();
+    if(sub&&auth)try{await jsonRequest('/api/push/subscribe',{subscription:sub.toJSON(),oauth_token:auth.oauth_token,oauth_token_secret:auth.oauth_token_secret,user:auth.user,userId:auth.userId},'DELETE')}catch(e){console.warn('Could not remove server push subscription',e);}
+    if(sub)await sub.unsubscribe();
+    return true;
+  }
   async function api(input) {
     const auth = requireAuth();
     const result = await jsonRequest('/api/schoology', { path: input?.path, method: input?.method || 'GET', params: input?.params || {}, json: !!input?.json, oauth_token: auth.oauth_token, oauth_token_secret: auth.oauth_token_secret, user: auth.user, userId: auth.userId });
@@ -95,7 +116,7 @@
     getOpenSchoologyLinks: async () => settings.openSchoologyLinks,
     setOpenSchoologyLinks: async value => { settings.openSchoologyLinks = !!value; saveSettings(); },
     getDesktopNotifications: async () => settings.desktopNotifications,
-    setDesktopNotifications: async value => { settings.desktopNotifications = !!value; saveSettings(); return settings.desktopNotifications; },
+    setDesktopNotifications: async value => { if(value) await enableBackgroundPush(); else await disableBackgroundPush(); settings.desktopNotifications = !!value; saveSettings(); return settings.desktopNotifications; },
     requestWebsiteNotificationPermission: async () => { if (!('Notification' in window)) throw new Error('This browser does not support website notifications.'); if (Notification.permission === 'granted') return 'granted'; if (Notification.permission === 'denied') throw new Error('Notifications are blocked for this website. Allow them in your browser site settings.'); return await Notification.requestPermission(); },
     showWebsiteNotification: async input => { if (!('Notification' in window) || Notification.permission !== 'granted') return false; const n = new Notification(String(input?.title || 'Schoology'), { body: String(input?.body || 'You have new Schoology activity.'), icon: '/assets/pwa-icon.svg', badge: '/assets/pwa-icon.svg', tag: 'schoology-' + String(input?.id || input?.title || 'activity') }); n.onclick = () => { try { window.focus(); if (input?.url) location.href = input.url; } catch (_) {} n.close(); }; return true; },
     getNotificationSound: async () => settings.notificationSound,

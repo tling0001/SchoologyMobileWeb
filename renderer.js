@@ -794,7 +794,11 @@ async function showAssignment(sectionId,assignmentId){
     const assignmentType=String(at.assignment_type||at.assignmentType||at.type||'').toLowerCase();
     const assignmentWebUrl=at.web_url||at.webUrl||at.launch_url||at.launchUrl||'';
     if(assignmentType==='lti_submission' && assignmentWebUrl){
-      if(A.platform==='web'){const result=await A.openExternal(assignmentWebUrl);if(result)throw new Error(result)}else showEmbeddedWeb(assignmentWebUrl,at.title||'Assignment',{allowBrowser:false,lti:true});
+      if(A.platform==='web'){
+        const launchMatch=String(assignmentWebUrl).match(/(?:https:\/\/api\.schoology\.com)?\/?v?2?\/?sections\/(\d+)\/applications\/(\d+)\/launch\/?$/i);
+        const tab=window.open('about:blank','_blank');
+        try{let target=assignmentWebUrl;if(launchMatch){const launch=await A.launchCourseApp({sectionId:Number(launchMatch[1]),appId:Number(launchMatch[2]),launchUrl:assignmentWebUrl});target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||'';}if(!target)throw new Error('Schoology did not return an LTI launch URL.');const u=new URL(target,location.href);if(u.protocol!=='https:')throw new Error('Only secure HTTPS LTI links can be opened.');if(tab&&!tab.closed)tab.location.href=u.href;else window.open(u.href,'_blank','noopener,noreferrer');}catch(error){tab?.close();throw error;}
+      }else showEmbeddedWeb(assignmentWebUrl,at.title||'Assignment',{allowBrowser:false,lti:true});
       return;
     }
     const html=typeof at.description==='string'?at.description:'';
@@ -849,7 +853,7 @@ async function openAssignmentComments(sectionId,assignmentId,assignment){
   const c=state.assignmentLandscape?(document.getElementById('assignmentTabContent')||document.getElementById('content')):(document.getElementById('assignmentTabContent')||document.getElementById('content'));if(!c)return;
   c.innerHTML='<div class="commentsPage officialComments"><div class="loading"><img class="androidInlineSpinner" src="assets/android_loading_spinner_72.gif" alt=""><span>Loading comments…</span></div></div>';
   try{
-    const x=await A.api({path:`sections/${sectionId}/assignments/${commentOnId}/comments`,params:{start:0,limit:50,with_attachments:'TRUE',richtext:1}});
+    const x=await A.api({path:`course/${sectionId}/materials/assignments/${commentOnId}/comments`,params:{start:0,limit:50,with_attachments:'TRUE',richtext:1}});
     const arr=x.comments||x.comment||[];
     const flat=[];
     const walk=(node,depth=0)=>{if(!node||typeof node!=='object')return;flat.push({node,depth});const children=node.children||node.replies||node.comments||node.comment_replies||[];if(Array.isArray(children))children.forEach(ch=>walk(ch,depth+1));};
@@ -909,7 +913,7 @@ function openAssignmentCommentComposer(sectionId,assignmentId,parentId='0'){
       const resourceId=wrap.dataset.resourceId||'';
       if(selectedCommentFile){const fileId=await A.uploadSchoologyFile({file:selectedCommentFile,filename:selectedCommentFile.name});params['file-attachment']={id:[Number(fileId)||fileId]}}
       if(resourceId)params.attachments=[{resource:Number(resourceId)||resourceId}];
-      await A.api({path:`sections/${sectionId}/assignments/${Number(state.assignmentData?.__gradeItemId||assignmentId)||Number(assignmentId)}/comments`,method:'POST',params,json:true});
+      const commentOnId=Number(state.assignmentData?.__gradeItemId||assignmentId)||Number(assignmentId);const commentPath=Number(parentId)>0?`course/${sectionId}/materials/assignments/${commentOnId}/create_reply/${Number(parentId)}`:`course/${sectionId}/materials/assignments/${commentOnId}/create_comment`;delete params.parent_id;await A.api({path:commentPath,method:'POST',params,json:true});
       close();await openAssignmentComments(sectionId,assignmentId,state.assignmentData||{})
     }catch(e){send.disabled=false;alert('Unable to post comment: '+e.message)}
   });

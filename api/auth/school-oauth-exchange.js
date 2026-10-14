@@ -23,11 +23,11 @@ module.exports = async function handler(req, res) {
     const tokenSecret = String(body.oauth_token_secret || '');
     const callback = String(body.callbackUrl || '').trim();
     if (!token || token.length > 512 || !tokenSecret || tokenSecret.length > 1024) throw S.httpError(400, 'The temporary school sign-in session is missing. Generate a new authorization URL.');
-    let callbackUrl;
-    try { callbackUrl = new URL(callback); } catch { throw S.httpError(400, 'Paste the Schoology callback URL from the browser address bar.'); }
-    if (callbackUrl.protocol !== 'schoology:' || callbackUrl.hostname.toLowerCase() !== 'external_login_callback') throw S.httpError(400, 'That is not the Schoology sign-in callback. Copy the full schoology://external_login_callback URL after approving sign-in.');
-    const requestToken = callbackUrl.searchParams.get('request_token') || '';
-    if (!requestToken || requestToken !== token) throw S.httpError(400, 'The pasted callback does not match this authorization attempt. Start sign-in again and paste its callback URL.');
+    let authorizationUrl;
+    try { authorizationUrl = new URL(callback); } catch { throw S.httpError(400, 'Paste the full HTTPS /oauth/authorize URL copied from the browser address bar before pressing Approve.'); }
+    if (authorizationUrl.protocol !== 'https:' || !authorizationUrl.pathname.replace(/\\/+$/, '').endsWith('/oauth/authorize')) throw S.httpError(400, 'Paste the HTTPS /oauth/authorize URL from the address bar, not a schoology:// callback.');
+    const requestToken = authorizationUrl.searchParams.get('oauth_token') || '';
+    if (!requestToken || requestToken !== token) throw S.httpError(400, 'The pasted authorization URL does not match this sign-in attempt. Generate a new URL and copy it from the address bar before pressing Approve.');
     const accessResponse = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/oauth/access_token', {}, { sign: true, clientIdentity: true, authToken: token, tokenSecret });
     if (accessResponse.status < 200 || accessResponse.status >= 300) throw S.httpError(502, 'Schoology could not complete sign-in. Please generate a new authorization URL and try again.');
     const access = parseForm(accessResponse.text);

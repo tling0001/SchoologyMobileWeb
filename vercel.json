@@ -1,5 +1,11 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "outputDirectory": "."
+  "outputDirectory": ".",
+  "crons": [
+    {
+      "path": "/api/push/poll",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

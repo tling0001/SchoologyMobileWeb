@@ -57,7 +57,7 @@ function renderSplash(logo, requestedWidth = 1170, requestedHeight = 2532) {
   const height = Math.max(320, Math.min(2732, Math.round(requestedHeight || 2532)));
   const out = Buffer.alloc(width * height * 4);
   for (let i = 0; i < width * height; i++) { out[i * 4] = 34; out[i * 4 + 1] = 48; out[i * 4 + 2] = 62; out[i * 4 + 3] = 255; }
-  const targetWidth = 842, targetHeight = Math.round(logo.height * targetWidth / logo.width);
+  const targetWidth = Math.max(1, Math.min(842, Math.round(width * 0.72), Math.round(height * 0.5 * logo.width / logo.height))), targetHeight = Math.round(logo.height * targetWidth / logo.width);
   const left = Math.floor((width - targetWidth) / 2), top = Math.floor((height - targetHeight) / 2);
   for (let y = 0; y < targetHeight; y++) for (let x = 0; x < targetWidth; x++) {
     const sx = Math.min(logo.width - 1, Math.floor(x * logo.width / targetWidth));
@@ -71,7 +71,7 @@ function renderSplash(logo, requestedWidth = 1170, requestedHeight = 2532) {
   const header = Buffer.alloc(13); header.writeUInt32BE(width, 0); header.writeUInt32BE(height, 4); header[8] = 8; header[9] = 6;
   return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), chunk('IHDR', header), chunk('IDAT', zlib.deflateSync(scanlines, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.setHeader('Allow', 'GET, HEAD'); res.statusCode = 405; return res.end(); }
   try {
     const logoPath = pathModule.join(process.cwd(), 'assets', 'logo_schoology.png');
@@ -86,4 +86,7 @@ module.exports = async function handler(req, res) {
   } catch (_) {
     res.statusCode = 500; res.setHeader('Content-Type', 'text/plain; charset=utf-8'); return res.end('Unable to generate Schoology splash image.');
   }
-};
+}
+handler.renderSplash = renderSplash;
+handler.decodePng = decodePng;
+module.exports = handler;

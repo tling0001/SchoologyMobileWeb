@@ -900,7 +900,7 @@ function openAssignmentCommentComposer(sectionId,assignmentId,parentId='0'){
       const resourceId=wrap.dataset.resourceId||'';
       if(selectedCommentFile){const fileId=await A.uploadSchoologyFile({file:selectedCommentFile,filename:selectedCommentFile.name});params['file-attachment']={id:[Number(fileId)||fileId]}}
       if(resourceId)params.attachments=[{resource:Number(resourceId)||resourceId}];
-      await A.api({path:`course/${sectionId}/materials/assignments/${assignmentId}/${Number(parentId)?`create_reply/${Number(parentId)}`:'create_comment'}`,method:'POST',params,json:true});
+      await A.api({path:`sections/${sectionId}/assignments/${assignmentId}/comments`,method:'POST',params,json:true});
       close();await openAssignmentComments(sectionId,assignmentId,state.assignmentData||{})
     }catch(e){send.disabled=false;alert('Unable to post comment: '+e.message)}
   });

@@ -826,7 +826,7 @@ async function showAssignment(sectionId,assignmentId){
       state.assignmentTab=id; state.submissionMenu=false;
       document.querySelectorAll('.assignmentTab').forEach(x=>x.classList.toggle('active',x.dataset.assignmentTab===id));
       if(id==='info')renderInfo();
-      else if(id==='comments')await openAssignmentComments(sectionId,assignmentId,at);
+      else if(id==='comments')await openAssignmentComments(sectionId,assignmentId,state.assignmentData||at);
       else if(id==='submit')await openAssignmentSubmissions(sectionId,assignmentId,at,isTeacher);
       syncToolbar();
     };
@@ -837,10 +837,12 @@ async function showAssignment(sectionId,assignmentId){
 }
 
 async function openAssignmentComments(sectionId,assignmentId,assignment){
+  // Android CommentsResourceV2 passes its CommentOnID (the resolved grade-item ID) to the shared comments resource.
+  const commentOnId=Number(assignment?.__gradeItemId||assignment?.grade_item_id||assignment?.gradeItemId||assignmentId)||Number(assignmentId);
   const c=state.assignmentLandscape?(document.getElementById('assignmentTabContent')||document.getElementById('content')):(document.getElementById('assignmentTabContent')||document.getElementById('content'));if(!c)return;
   c.innerHTML='<div class="commentsPage officialComments"><div class="loading"><img class="androidInlineSpinner" src="assets/android_loading_spinner_72.gif" alt=""><span>Loading comments…</span></div></div>';
   try{
-    const x=await A.api({path:`sections/${sectionId}/assignments/${assignmentId}/comments`,params:{start:0,limit:50,with_attachments:'TRUE',richtext:1}});
+    const x=await A.api({path:`sections/${sectionId}/assignments/${commentOnId}/comments`,params:{start:0,limit:50,with_attachments:'TRUE',richtext:1}});
     const arr=x.comments||x.comment||[];
     const flat=[];
     const walk=(node,depth=0)=>{if(!node||typeof node!=='object')return;flat.push({node,depth});const children=node.children||node.replies||node.comments||node.comment_replies||[];if(Array.isArray(children))children.forEach(ch=>walk(ch,depth+1));};
@@ -863,7 +865,7 @@ async function openAssignmentComments(sectionId,assignmentId,assignment){
     await hydrateMediaImages(c);
     document.querySelectorAll('[data-comment-like]').forEach(btn=>btn.onclick=async()=>{const id=btn.dataset.commentLike;if(!id)return;const liked=btn.dataset.liked==='1';try{await A.api({path:`like/${assignmentId}/comment/${id}`,method:'POST',params:{like_action:!liked},json:true});btn.dataset.liked=liked?'0':'1';btn.textContent=liked?'Like':'Unlike'}catch(e){alert('Unable to update like: '+e.message)}});
     document.querySelectorAll('[data-comment-user]').forEach(btn=>btn.onclick=()=>{const uid=btn.dataset.commentUser;if(uid){state.profileUser={id:uid};state.toolbarTitle=btn.textContent||'Profile';openProfileById(uid,btn.textContent||'Profile')}});
-    document.querySelectorAll('[data-comment-reply]').forEach(btn=>btn.onclick=()=>openAssignmentCommentComposer(sectionId,assignmentId,btn.dataset.commentReply));
+    document.querySelectorAll('[data-comment-reply]').forEach(btn=>btn.onclick=()=>openAssignmentCommentComposer(sectionId,commentOnId,btn.dataset.commentReply));
   }catch(e){c.innerHTML=`<div class="error apiError"><b>Schoology could not load comments.</b><br>${esc(e.message)}</div>`}
 }
 
@@ -900,7 +902,7 @@ function openAssignmentCommentComposer(sectionId,assignmentId,parentId='0'){
       const resourceId=wrap.dataset.resourceId||'';
       if(selectedCommentFile){const fileId=await A.uploadSchoologyFile({file:selectedCommentFile,filename:selectedCommentFile.name});params['file-attachment']={id:[Number(fileId)||fileId]}}
       if(resourceId)params.attachments=[{resource:Number(resourceId)||resourceId}];
-      await A.api({path:`sections/${sectionId}/assignments/${assignmentId}/comments`,method:'POST',params,json:true});
+      await A.api({path:`sections/${sectionId}/assignments/${Number(state.assignmentData?.__gradeItemId||assignmentId)||Number(assignmentId)}/comments`,method:'POST',params,json:true});
       close();await openAssignmentComments(sectionId,assignmentId,state.assignmentData||{})
     }catch(e){send.disabled=false;alert('Unable to post comment: '+e.message)}
   });

@@ -7,5 +7,15 @@
       "path": "/api/push/poll",
       "schedule": "*/5 * * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/push/public-key",
+      "destination": "/api/push/subscribe?mode=public-key"
+    },
+    {
+      "source": "/api/auth/logout",
+      "destination": "/api/auth/session?mode=logout"
+    }
   ]
 }

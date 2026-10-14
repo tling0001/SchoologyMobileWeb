@@ -1,9 +1,4 @@
 {
   "cleanUrls": true,
-  "trailingSlash": false,
-  "functions": {
-    "api/apple-splash.js": {
-      "includeFiles": "assets/logo_schoology.png"
-    }
-  }
+  "trailingSlash": false
 }

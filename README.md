@@ -28,7 +28,7 @@ Configure these in **Vercel → Project → Settings → Environment Variables**
 
 Set up an Upstash Redis database and copy its REST URL and REST token into Vercel. Generate VAPID keys with `npx web-push generate-vapid-keys`, then set both keys in Vercel. Generate `PUSH_SESSION_ENCRYPTION_KEY` with a cryptographically secure random 32-byte value (hex encoded), and generate a separate random `CRON_SECRET`. The scheduled `/api/push/poll` function checks for new Schoology notifications every five minutes and sends Web Push notifications when the page is closed; Vercel must support scheduled functions at that cadence. Keep all private values in server-side configuration. Production login and school search intentionally stay disabled until rate limiting is configured. `SESSION_ENCRYPTION_KEY` is no longer required because this version does not create server-side login cookies.
 
-Use Schoology API credentials only if you are authorized to use them. Keep them in Vercel's encrypted environment settings, never in client JavaScript or public files. After changing environment variables, redeploy the Vercel project.
+The built-in Schoology consumer credentials are only referenced by the server-side OAuth signer; never copy them into browser JavaScript or public assets. Keep VAPID private keys, encryption keys, Redis tokens, and cron secrets in Vercel's encrypted environment settings. After changing environment variables, redeploy the Vercel project.
 
 ## Important limitations
 

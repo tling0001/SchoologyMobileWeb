@@ -24,9 +24,9 @@ Configure these in **Vercel → Project → Settings → Environment Variables**
 | `VAPID_PUBLIC_KEY` | Public Web Push VAPID key |
 | `VAPID_PRIVATE_KEY` | Private Web Push VAPID key; server-side only |
 | `VAPID_SUBJECT` | Contact URI, such as `mailto:you@example.com` |
-| `PUSH_CRON_SECRET` | Random secret authorizing the scheduled push-delivery function |
+| `CRON_SECRET` | Random secret authorizing Vercel scheduled-function requests |
 
-Set up an Upstash Redis database and copy its REST URL and REST token into Vercel. Generate VAPID keys with `npx web-push generate-vapid-keys`, then set both keys in Vercel. Generate `PUSH_SESSION_ENCRYPTION_KEY` with a cryptographically secure random 32-byte value (hex encoded), and generate a separate random `PUSH_CRON_SECRET`. The scheduled `/api/push/poll` function checks for new Schoology notifications every five minutes and sends Web Push notifications when the page is closed; Vercel must support scheduled functions at that cadence. Keep all private values in server-side configuration. Production login and school search intentionally stay disabled until rate limiting is configured. `SESSION_ENCRYPTION_KEY` is no longer required because this version does not create server-side login cookies.
+Set up an Upstash Redis database and copy its REST URL and REST token into Vercel. Generate VAPID keys with `npx web-push generate-vapid-keys`, then set both keys in Vercel. Generate `PUSH_SESSION_ENCRYPTION_KEY` with a cryptographically secure random 32-byte value (hex encoded), and generate a separate random `CRON_SECRET`. The scheduled `/api/push/poll` function checks for new Schoology notifications every five minutes and sends Web Push notifications when the page is closed; Vercel must support scheduled functions at that cadence. Keep all private values in server-side configuration. Production login and school search intentionally stay disabled until rate limiting is configured. `SESSION_ENCRYPTION_KEY` is no longer required because this version does not create server-side login cookies.
 
 Use Schoology API credentials only if you are authorized to use them. Keep them in Vercel's encrypted environment settings, never in client JavaScript or public files. After changing environment variables, redeploy the Vercel project.
 

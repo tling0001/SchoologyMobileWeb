@@ -2218,3 +2218,8 @@ html[data-electron-platform="win32"][data-window-controls-overlay="true"] .toolb
 .login.loginAnimated:has(#schoolLogin)>.loginBottom:hover{text-decoration:underline}
 .login.loginAnimated:has(#schoolLogin)>.error{position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;transform:none!important;width:min(420px,calc(100vw - 40px));max-width:420px;margin:12px auto 54px}
 @media(max-height:560px){.login.loginAnimated:has(#schoolLogin){justify-content:flex-start;padding-top:110px;padding-bottom:58px;min-height:100vh}.login.loginAnimated:has(#schoolLogin) .logo{top:12px;width:210px;margin-left:-105px}.login.loginAnimated:has(#schoolLogin) .loginBody.loginActionCenter{margin-top:8px!important;gap:8px}.login.loginAnimated:has(#schoolLogin) .loginBody.loginActionCenter>.loginIconButton{min-height:44px;padding:8px 12px}}
+
+
+/* Desktop port v178: keep school-profile upcoming cards legible in dark mode. */
+:root[data-theme="dark"] .schoolProfileUpcomingPane{background:var(--theme-surface,#202327);border-color:var(--theme-border,#3a3f46)}
+:root[data-theme="dark"] .schoolProfileUpcomingContent .upcomingAssignment{background:var(--theme-surface,#202327);border-color:var(--theme-border,#3a3f46);color:var(--theme-text,#e6e8eb)}

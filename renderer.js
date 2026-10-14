@@ -740,8 +740,15 @@ async function openAssignmentAttachmentItem(item,button,dialog){
       const url=item.url||item.linkURL||item.linkUrl||item.link_url||item.href||item.videoURL||item.videoUrl||item.video_url;
       if(!url)throw new Error('Schoology did not provide a link URL.');
       dialog?.classList.remove('open');
-      if(await routeSchoologyLink(url))return;
-      if(A.platform==='web'){const result=await A.openExternal(url);if(result)throw new Error(result)}else showEmbeddedWeb(url,item.linkTitle||item.title||item.videoTitle||item.video_title||'Link');
+      if(A.platform==='web'){
+        // Open synchronously in the user's click gesture so popup blockers do not cancel it.
+        const absolute=new URL(url,location.href);
+        if(absolute.protocol!=='https:')throw new Error('Only secure HTTPS links can be opened.');
+        window.open(absolute.href,'_blank','noopener,noreferrer');
+      }else{
+        if(await routeSchoologyLink(url))return;
+        showEmbeddedWeb(url,item.linkTitle||item.title||item.videoTitle||item.video_title||'Link');
+      }
     }else if(item.kind==='embed'){
       const code=item.embed_code||item.embedCode||'';
       if(!code)throw new Error('Schoology did not provide embedded content.');

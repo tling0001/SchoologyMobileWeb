@@ -31,6 +31,14 @@ function fixDarkRichTextColors(root=document.getElementById('content')){
  for(const el of elements){if(!el.isConnected||/^(IMG|SVG|PATH|VIDEO|CANVAS|IFRAME)$/.test(el.tagName))continue;let node=el,lightSurface=false;while(node&&node!==root.parentElement){if(nearWhite(getComputedStyle(node).backgroundColor)){lightSurface=true;break}node=node.parentElement}if(lightSurface)continue;if(neutralDark(getComputedStyle(el).color))el.style.setProperty('color','var(--theme-text,#e6e8eb)','important');}
 }
 if(!window.__schoologyDarkTextObserver){window.__schoologyDarkTextObserver=new MutationObserver(records=>{if(document.documentElement.dataset.theme!=='dark')return;for(const record of records){for(const node of record.addedNodes||[]){if(node.nodeType===1)fixDarkRichTextColors(node)}if(record.target?.nodeType===1)fixDarkRichTextColors(record.target)}});window.__schoologyDarkTextObserver.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class','color']});}
+document.addEventListener('click',async event=>{
+ const anchor=event.target?.closest?.('a[href]');if(!anchor)return;
+ const rich=anchor.closest('.activityBody,.schoolProfileUpdateBody,.schoolProfileUpdate,.assignmentDescription,.commentBodyHtml,.discussionBody,.messageThreadBody,.notificationBodyRich,.groupFullUpdate,.androidCommentContent,.activityMedia');
+ if(!rich)return;
+ const href=anchor.href||anchor.getAttribute('href')||'';if(!/^https?:\\/\\//i.test(href))return;
+ event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
+ try{const result=await A.openExternal(href);if(result)showAppDialog('Unable to open link',result)}catch(error){showAppDialog('Unable to open link',error.message||String(error))}
+},true);
 function alert(message){showAppDialog('Schoology',String(message));}
 function showAppDialog(title,message,actions=[{label:'OK',action:null}]){let el=document.getElementById('appDialog');if(!el){el=document.createElement('div');el.id='appDialog';el.className='appDialogOverlay';document.body.appendChild(el)}el.innerHTML=`<div class="appDialog" role="dialog" aria-modal="true"><h2>${esc(title)}</h2><div class="appDialogMessage">${esc(message)}</div><div class="appDialogActions">${actions.map((a,i)=>`<button data-dialog-action="${i}">${esc(a.label)}</button>`).join('')}</div></div>`;el.classList.add('open');el.querySelectorAll('[data-dialog-action]').forEach((b,i)=>b.onclick=async()=>{el.classList.remove('open');const fn=actions[i]?.action;if(fn)await fn()});return el}
 function showUpdateDialog(u){

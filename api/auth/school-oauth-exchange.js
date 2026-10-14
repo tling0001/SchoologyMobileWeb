@@ -24,11 +24,16 @@ module.exports = async function handler(req, res) {
     const callback = String(body.callbackUrl || '').trim();
     if (!token || token.length > 512 || !tokenSecret || tokenSecret.length > 1024) throw S.httpError(400, 'The temporary school sign-in session expired. Start school sign-in again.');
     let authorizationUrl;
-    try { authorizationUrl = new URL(callback); } catch { throw S.httpError(400, 'Paste the browser address shown in the sign-in guide.'); }
-    if (authorizationUrl.protocol !== 'https:' || !authorizationUrl.pathname.replace(/\\/+$/, '').endsWith('/oauth/authorize')) throw S.httpError(400, 'That address does not match the school sign-in page. Paste the full browser address shown in the guide.');
+    try { authorizationUrl = new URL(callback); } catch { throw S.httpError(400, 'Paste the final browser address shown after school sign-in finishes.'); }
+    if (authorizationUrl.protocol !== 'https:' || !authorizationUrl.pathname.replace(/\\/+$/, '').endsWith('/mobile_login_success')) {
+      throw S.httpError(400, 'School sign-in has not returned its completion address yet. Paste the final browser address shown after school sign-in finishes.');
+    }
     const requestToken = authorizationUrl.searchParams.get('oauth_token') || '';
-    if (!requestToken || requestToken !== token) throw S.httpError(400, 'That browser address does not match this sign-in attempt. Start school sign-in again and paste the address from the current page.');
-    const accessResponse = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/oauth/access_token', {}, { sign: true, clientIdentity: true, authToken: token, tokenSecret });
+    const verifier = authorizationUrl.searchParams.get('oauth_verifier') || '';
+    if (!requestToken || requestToken !== token || !verifier) {
+      throw S.httpError(400, 'That address does not contain a completed authorization for this sign-in attempt. Start school sign-in again and use the final browser address.');
+    }
+    const accessResponse = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/oauth/access_token', { oauth_verifier: verifier }, { sign: true, clientIdentity: true, authToken: token, tokenSecret });
     if (accessResponse.status < 200 || accessResponse.status >= 300) { const detail = String(accessResponse.text || '').replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 180); throw S.httpError(502, detail ? `Schoology could not finish sign-in (HTTP ${accessResponse.status}): ${detail}` : `Schoology could not finish sign-in (HTTP ${accessResponse.status}). Start school sign-in again and retry.`); }
     const access = parseForm(accessResponse.text);
     if (!access.oauth_token || !access.oauth_token_secret) {

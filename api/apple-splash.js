@@ -52,8 +52,10 @@ function decodePng(input) {
   }
   return { width, height, channels, pixels };
 }
-function renderSplash(logo) {
-  const width = 1170, height = 2532, out = Buffer.alloc(width * height * 4);
+function renderSplash(logo, requestedWidth = 1170, requestedHeight = 2532) {
+  const width = Math.max(320, Math.min(2732, Math.round(requestedWidth || 1170)));
+  const height = Math.max(320, Math.min(2732, Math.round(requestedHeight || 2532)));
+  const out = Buffer.alloc(width * height * 4);
   for (let i = 0; i < width * height; i++) { out[i * 4] = 34; out[i * 4 + 1] = 48; out[i * 4 + 2] = 62; out[i * 4 + 3] = 255; }
   const targetWidth = 842, targetHeight = Math.round(logo.height * targetWidth / logo.width);
   const left = Math.floor((width - targetWidth) / 2), top = Math.floor((height - targetHeight) / 2);
@@ -73,11 +75,13 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.setHeader('Allow', 'GET, HEAD'); res.statusCode = 405; return res.end(); }
   try {
     const logoPath = pathModule.join(process.cwd(), 'assets', 'logo_schoology.png');
-    const png = renderSplash(decodePng(fs.readFileSync(logoPath)));
+    const requestedWidth = Number(req.query?.width || new URL(req.url, 'https://localhost').searchParams.get('width')) || 1170;
+    const requestedHeight = Number(req.query?.height || new URL(req.url, 'https://localhost').searchParams.get('height')) || 2532;
+    const png = renderSplash(decodePng(fs.readFileSync(logoPath)), requestedWidth, requestedHeight);
     res.statusCode = 200;
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Length', String(png.length));
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
     return req.method === 'HEAD' ? res.end() : res.end(png);
   } catch (_) {
     res.statusCode = 500; res.setHeader('Content-Type', 'text/plain; charset=utf-8'); return res.end('Unable to generate Schoology splash image.');

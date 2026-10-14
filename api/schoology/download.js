@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
     }
     const isSchoolHost = host => !!schoolDomain && (host === schoolDomain || host.endsWith('.' + schoolDomain));
     const isTrustedFileHost = host => isSchoologyHost(host) || isSchoolHost(host) || host === 'amazonaws.com' || host.endsWith('.amazonaws.com') || host === 'cloudfront.net' || host.endsWith('.cloudfront.net');
-    if (url.protocol !== 'https:' || !(isSchoologyHost(url.hostname.toLowerCase()) || isSchoolHost(url.hostname.toLowerCase()))) throw S.httpError(400, 'Only HTTPS Schoology or selected-school file links can be downloaded.');
+    if (url.protocol !== 'https:' || !isTrustedFileHost(url.hostname.toLowerCase())) throw S.httpError(400, 'Only HTTPS Schoology, selected-school, or signed Schoology storage links can be downloaded.');
     let response = null;
     for (let depth = 0; depth <= 5; depth++) {
       const currentHost=url.hostname.toLowerCase();

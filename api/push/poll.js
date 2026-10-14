@@ -4,7 +4,7 @@ const P=require('../../lib/push-server');
 const webpush=require('web-push');
 module.exports=async function handler(req,res){
  if(req.method!=='GET'&&req.method!=='POST')return S.send(res,405,{error:'Method not allowed.'},{Allow:'GET, POST'});
- const secret=process.env.PUSH_CRON_SECRET;
+ const secret=process.env.CRON_SECRET;
  if(!secret||req.headers.authorization!=='Bearer '+secret)return S.send(res,401,{error:'Unauthorized'});
  try{
   const vapid=P.vapid();webpush.setVapidDetails(vapid.subject,vapid.publicKey,vapid.privateKey);

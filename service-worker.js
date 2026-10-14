@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'schoology-shell-v5';
+const CACHE_NAME = 'schoology-shell-v6';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -11,7 +11,6 @@ const APP_SHELL = [
   '/manifest.json',
   '/assets/pwa-icon.svg',
   '/assets/apple-splash.svg',
-  '/api/apple-splash',
   '/assets/android_loading_logo.png',
   '/assets/android_loading_spinner_72.gif'
 ];

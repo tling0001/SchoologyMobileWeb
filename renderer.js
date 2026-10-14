@@ -12,7 +12,7 @@ let loadTabGeneration=0;
 let pendingDeepLinkAfterLogin=null;
 let schoologyStartupComplete=false;
 let queuedIncomingDeepLink=null;
-let state={openSchoologyLinks:true,desktopNotifications:true,notificationSound:false,appVersion:'',screen:'login',school:null,schoolOAuthUrl:'',schools:[],q:'',loading:false,error:'',auth:null,user:null,tab:'home',homeTab:'recent',searchToken:0,drawerPage:null,message:null,messageTab:'inbox',messageFolder:'inbox',messageThread:null,composeMessage:false,selectedCourse:null,mobileMe:null,courseDashboardEnabled:false,preferredHomepage:'recent',toolbarTitle:'Home',embeddedReturn:null,embeddedCanOpenExternal:false,homeUpcomingReturn:false,assignmentTab:'info',assignmentCanSubmit:false,assignmentIsTeacher:false,assignmentSubpage:null,submissionMenu:false,assignmentAllowComments:false,assignmentLandscape:false,folderId:0,folderStack:[],currentFolderTitle:'Materials',courseView:null,activityUsers:{},activityComments:null,currentFolderId:0,currentGroup:null,profileUser:null,profileTab:'updates',groupTab:'updates',resourceCollection:null,windowChromeOverlay:false,homeCreateMenu:false,calendarDate:null,calendarSelectedDate:null,calendarCanCreate:false,calendarEvents:[],calendarEventsMonth:'',calendarTab:'calendar',calendarUpcomingEvents:null,groupJoinOpen:false,embeddedTheme:'',profileReturn:null,themeMode:'system',experimentalForceDark:false,peopleEnabled:false};
+let state={openSchoologyLinks:true,desktopNotifications:true,notificationSound:false,appVersion:'',screen:'login',school:null,schoolOAuthUrl:'',schools:[],q:'',loading:false,error:'',auth:null,user:null,tab:'home',homeTab:'recent',searchToken:0,drawerPage:null,message:null,messageTab:'inbox',messageFolder:'inbox',messageThread:null,composeMessage:false,selectedCourse:null,mobileMe:null,courseDashboardEnabled:false,preferredHomepage:'recent',toolbarTitle:'Home',embeddedReturn:null,embeddedCanOpenExternal:false,homeUpcomingReturn:false,assignmentTab:'info',assignmentCanSubmit:false,assignmentIsTeacher:false,assignmentSubpage:null,submissionMenu:false,assignmentAllowComments:false,assignmentLandscape:false,folderId:0,folderStack:[],currentFolderTitle:'Materials',courseView:null,activityUsers:{},activityComments:null,currentFolderId:0,currentGroup:null,profileUser:null,profileTab:'updates',groupTab:'updates',resourceCollection:null,windowChromeOverlay:false,homeCreateMenu:false,calendarDate:null,calendarSelectedDate:null,calendarCanCreate:false,calendarEvents:[],calendarEventsMonth:'',calendarTab:'calendar',calendarUpcomingEvents:null,groupJoinOpen:false,embeddedTheme:'',profileReturn:null,themeMode:'system',experimentalForceDark:false,peopleEnabled:false,courseCanAddResources:false};
 function resolveTheme(mode){if(mode==='dark'||mode==='light')return mode;return window.matchMedia?.('(prefers-color-scheme: dark)').matches?'dark':'light'}
 function applyTheme(mode,save=false){const selected=['light','dark','system'].includes(mode)?mode:'system';state.themeMode=selected;document.documentElement.dataset.theme=resolveTheme(selected);document.documentElement.dataset.themeMode=selected;if(document.documentElement.dataset.theme==='dark')requestAnimationFrame(()=>fixDarkRichTextColors());if(save){try{Promise.resolve(A.setThemeMode?.(selected)).catch(()=>{})}catch{}}}
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(state.themeMode==='system')applyTheme('system')});
@@ -547,6 +547,7 @@ function syncToolbar(){
     slot.innerHTML='<button id="courseUpdatePlus" class="iconButton toolbarImageButton" aria-label="Post update"><img src="assets/icons/ic_action_new.png" alt=""></button>';
     document.getElementById('courseUpdatePlus')?.addEventListener('click',()=>state.selectedCourse&&openCourseUpdateComposer(state.selectedCourse));
   }else if(state.courseView&&!state.assignmentView&&!state.embeddedTitle&&!state.currentGroup&&!state.profileUser&&state.courseTab==='materials'){
+    if(state.courseCanAddResources&&state.selectedCourse){slot.innerHTML=`<button id="courseResourcePlus" class="iconButton toolbarImageButton" aria-label="Add resources" title="Add resources">${officialIcon('ic_action_new.png','')}</button>`;document.getElementById('courseResourcePlus')?.addEventListener('click',async()=>{const sid=Number(state.selectedCourse?.id||state.selectedCourse?.section_id||state.selectedCourse?.sectionId);if(!sid)return;try{await A.prepareWebSession();showEmbeddedWeb(`https://app.schoology.com/course/${sid}/materials`,'Add Resources',{allowBrowser:false})}catch(e){showAppDialog('Unable to open resource creator',e.message||String(e))}})}
   }else if(state.tab==='messages'&&!state.courseView&&!state.embeddedTitle&&!state.message){
     slot.innerHTML='<button id="composeMessage" class="iconButton toolbarPlus" aria-label="Compose message">+</button>';
     document.getElementById('composeMessage')?.addEventListener('click',()=>showComposeMessage());document.getElementById('joinGroup')?.addEventListener('click',showJoinGroupDialog);
@@ -619,7 +620,7 @@ function navigateBack(){
 }
 async function getCourseNavigationPermissions(sectionId,userId){
  if(!sectionId||!userId)throw new Error('Missing course/user ID');
- const request=[`/v1/sections/${sectionId}/grades`,`/v1/users/${userId}/grades`,`/v1/sections/${sectionId}/attendance`];
+ const request=[`/v1/sections/${sectionId}/grades`,`/v1/users/${userId}/grades`,`/v1/sections/${sectionId}/attendance`,`/v1/sections/${sectionId}/documents`];
  const x=await A.api({path:'multioptions',method:'POST',params:{request}});
  const list=Array.isArray(x?.response)?x.response:(Array.isArray(x?.responses)?x.responses:[]);
  const by={};
@@ -627,7 +628,10 @@ async function getCourseNavigationPermissions(sectionId,userId){
  const sectionGradeBody=by[`/v1/sections/${sectionId}/grades`]||'';
  const userGradeBody=by[`/v1/users/${userId}/grades`]||'';
  const attendanceBody=by[`/v1/sections/${sectionId}/attendance`]||'';
- return {sectionGradesPut:sectionGradeBody.includes('put'),userGradesGet:userGradeBody.includes('get'),attendanceGet:attendanceBody.includes('get')};
+ const documentsBody=by[`/v1/sections/${sectionId}/documents`]||'';
+ const sectionDocumentsPost=/\\bpost\\b/i.test(documentsBody);
+ if(state.courseView==='course'&&String(state.selectedCourse?.id||state.selectedCourse?.section_id||state.selectedCourse?.sectionId)===String(sectionId)){state.courseCanAddResources=sectionDocumentsPost;syncToolbar()}
+ return {sectionGradesPut:sectionGradeBody.includes('put'),userGradesGet:userGradeBody.includes('get'),attendanceGet:attendanceBody.includes('get'),sectionDocumentsPost};
 }
 
 async function showCourse(course,activeTab='materials',forceRebuild=false){
@@ -646,7 +650,7 @@ async function showCourse(course,activeTab='materials',forceRebuild=false){
  // Mount the course screen synchronously. Network lookups run only after the course
  // identity, tabs, and loading indicators are visible, so slow connections don't leave
  // the previous screen under a changed app bar.
- state.selectedCourse=course;state.courseView='course';state.courseTab=activeTab;state.folderStack=[];state.currentFolderId=0;state.assignmentView=null;state.embeddedTitle=null;
+ state.courseCanAddResources=false;state.selectedCourse=course;state.courseView='course';state.courseTab=activeTab;state.folderStack=[];state.currentFolderId=0;state.assignmentView=null;state.embeddedTitle=null;
  state.toolbarTitle=sectionTitleOf(course)||courseTitleOf(course);syncToolbar();
  const title=courseTitleOf(course), section=sectionTitleOf(course);
  const image=normalizeImageUrl(course.profile_url||course.profileUrl||course.course_profile_url||course.courseProfileUrl||course.course_theme||course.courseTheme||course.image||course.course_image||'');
@@ -924,11 +928,12 @@ function showAssignmentActionMenu(){
   const plus=document.getElementById('assignmentPlus');if(!plus)return;
   const r=plus.getBoundingClientRect();
   const menu=document.createElement('div');menu.id='assignmentActionMenu';menu.className='assignmentActionMenu';
-  const canComment=!!state.assignmentAllowComments,canSubmit=!!state.assignmentCanSubmit;
-  menu.innerHTML=`${canComment?`<button id="assignmentNewComment"><span>New comment</span></button>`:''}${canSubmit?`<button id="assignmentNewSubmission"><span>New submission</span></button>`:''}`;
+  const canComment=!!state.assignmentAllowComments,canSubmit=!!state.assignmentCanSubmit&&!state.assignmentIsTeacher;
+  menu.innerHTML=`${canComment?`<button id="assignmentNewComment"><span>Create comment</span></button>`:''}${canSubmit?`<button id="assignmentUploadSubmission"><span>Upload submission</span></button><button id="assignmentTextSubmission"><span>Create text submission</span></button>`:''}`;
   document.body.appendChild(menu);menu.style.top=(r.bottom+6)+'px';menu.style.right=(window.innerWidth-r.right)+'px';
   document.getElementById('assignmentNewComment')?.addEventListener('click',()=>{menu.remove();openAssignmentCommentComposer(state.assignmentView.sectionId,state.assignmentView.assignmentId,'0')});
-  document.getElementById('assignmentNewSubmission')?.addEventListener('click',()=>{menu.remove();showSubmissionMenu()});
+  document.getElementById('assignmentUploadSubmission')?.addEventListener('click',()=>{menu.remove();showAssignmentAttachmentChooser()});
+  document.getElementById('assignmentTextSubmission')?.addEventListener('click',()=>{menu.remove();openTextSubmissionComposer()});
   const dismiss=e=>{if(!menu.contains(e.target)&&e.target!==plus){menu.remove();document.removeEventListener('mousedown',dismiss)}};setTimeout(()=>document.addEventListener('mousedown',dismiss),0);
 }
 

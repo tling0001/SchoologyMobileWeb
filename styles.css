@@ -2255,9 +2255,9 @@ html.ios-standalone .drawer{
 }
 
 
-/* iOS installed PWA safe area: reserve space only at the top.
-   Put the inset inside the toolbar so its background fills the status-bar area
-   and the toolbar contents begin below the status bar. */
+/* iOS installed PWA safe area compatibility.
+   Older iOS releases used constant(); newer releases use env(). Keep both
+   declarations because an unsupported declaration is ignored by Safari. */
 html.ios-standalone body{padding-top:0!important;padding-bottom:0!important}
 html.ios-standalone .shell{
   padding-top:0!important;
@@ -2266,22 +2266,30 @@ html.ios-standalone .shell{
   box-sizing:border-box!important;
 }
 html.ios-standalone .shell>.toolbar{
+  height:calc(56px + constant(safe-area-inset-top))!important;
   height:calc(56px + env(safe-area-inset-top,0px))!important;
+  min-height:calc(56px + constant(safe-area-inset-top))!important;
   min-height:calc(56px + env(safe-area-inset-top,0px))!important;
+  flex:0 0 calc(56px + constant(safe-area-inset-top))!important;
   flex:0 0 calc(56px + env(safe-area-inset-top,0px))!important;
   box-sizing:border-box!important;
+  padding:constant(safe-area-inset-top) 8px 0!important;
   padding:env(safe-area-inset-top,0px) 8px 0!important;
 }
 html.ios-standalone .shell>main#content{
+  height:calc(var(--app-height,100dvh) - 56px - constant(safe-area-inset-top))!important;
   height:calc(var(--app-height,100dvh) - 56px - env(safe-area-inset-top,0px))!important;
   min-height:0!important;
+  max-height:calc(var(--app-height,100dvh) - 56px - constant(safe-area-inset-top))!important;
   max-height:calc(var(--app-height,100dvh) - 56px - env(safe-area-inset-top,0px))!important;
   padding-bottom:0!important;
 }
 html.ios-standalone .drawer{
+  padding-top:constant(safe-area-inset-top)!important;
   padding-top:env(safe-area-inset-top,0px)!important;
   padding-bottom:0!important;
 }
 html.ios-standalone .login.loginAnimated:has(#schoolLogin)>.loginBottom{
-  bottom:24px!important;
+  bottom:max(24px,constant(safe-area-inset-bottom))!important;
+  bottom:max(24px,env(safe-area-inset-bottom,0px))!important;
 }

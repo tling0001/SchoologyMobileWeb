@@ -814,10 +814,15 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
         // launch-token URL just as the Course Apps screen does.
         const appId=Number(at.application_id??at.applicationId??at.lti_app_id??at.ltiAppId??at.external_tool_id??at.externalToolId??at.app_id??at.appId);
         let target=assignmentWebUrl;
-        const launchMatch=String(assignmentWebUrl).match(/(?:https:\/\/api\.schoology\.com)?\/?v?2?\/?sections\/(\d+)\/applications\/(\d+)\/launch\/?$/i);
+        let launchMatch=null;
+        try{
+          const launchUrl=new URL(String(assignmentWebUrl), 'https://api.schoology.com');
+          launchMatch=launchUrl.pathname.match(/^\/(?:v[12]\/)?sections?\/(\d+)\/applications?\/(\d+)\/launch\/?$/i);
+          if(launchMatch)launchMatch=[launchMatch[0],launchMatch[1],launchMatch[2]];
+        }catch{}
         const sectionMatch=launchMatch||((Number.isSafeInteger(appId)&&appId>0)?[null,String(sectionId),String(appId)]:null);
         if(sectionMatch){
-          const launch=await A.launchCourseApp({sectionId:Number(sectionMatch[1]),appId:Number(sectionMatch[2]),launchUrl:launchMatch?assignmentWebUrl:undefined});
+          const launch=await A.launchCourseApp({sectionId:Number(sectionMatch[1]),appId:Number(sectionMatch[2])});
           target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||launch?.launch_url||launch?.launchUrl||'';
           if(!target)throw new Error('Schoology did not return an authenticated LTI launch URL.');
         }

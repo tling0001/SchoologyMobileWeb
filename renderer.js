@@ -742,7 +742,8 @@ async function openAssignmentAttachmentItem(item,button,dialog){
       const filename=item.filename||item.fileName||item.title||'Schoology file';
       if(A.platform==='web'){
         const domain=schoolLoginDomain(state.school);
-        const absoluteUrl=new URL(url,domain?'https://'+domain+'/':'https://app.schoology.com/').href;
+        const base=/^\/?v[12]\//i.test(url)?'https://api.schoology.com/':domain?'https://'+domain+'/':'https://app.schoology.com/';
+        const absoluteUrl=new URL(url,base).href;
         await downloadWithFeedback(button,{url:absoluteUrl,filename,mime:item.filemime||item.fileMIME||'application/octet-stream',schoolDomain:domain,openInBrowser:true});
       }else{
         const result=await downloadWithFeedback(button,{url,filename,mime:item.filemime||item.fileMIME||'application/octet-stream'});
@@ -755,7 +756,7 @@ async function openAssignmentAttachmentItem(item,button,dialog){
       dialog?.classList.remove('open');
       if(A.platform==='web'){
         // Open synchronously in the user's click gesture so popup blockers do not cancel it.
-        const absolute=new URL(url,location.href);
+        const domain=schoolLoginDomain(state.school);const base=/^\/?v[12]\//i.test(url)?'https://api.schoology.com/':domain?'https://'+domain+'/':location.href;const absolute=new URL(url,base);
         if(absolute.protocol!=='https:')throw new Error('Only secure HTTPS links can be opened.');
         window.open(absolute.href,'_blank','noopener,noreferrer');
       }else{
@@ -790,7 +791,7 @@ function showAssignmentAttachmentDialog(attachments){
   dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.classList.remove('open')},{once:true});
 }
 async function showAssignment(sectionId,assignmentId,launchTab=null){
-  const ltiLaunchTab=launchTab||(A.platform==='web'?window.open('about:blank','_blank'):null);
+  const ltiLaunchTab=launchTab||null;
   const c=document.getElementById('content'); if(!c){ltiLaunchTab?.close();return}
   state.toolbarTitle='Assignment'; state.screen='app'; state.assignmentView={sectionId,assignmentId}; state.courseView='course'; state.assignmentTab='info'; state.assignmentCanSubmit=false; state.assignmentIsTeacher=false; state.assignmentSubpage=null; state.submissionMenu=false; state.assignmentAllowComments=false; state.assignmentLandscape=window.matchMedia('(min-width: 801px)').matches; syncToolbar();
   c.innerHTML=`<section class="assignmentPage"><div class="assignmentLoading loading"><img class="androidInlineSpinner" src="assets/android_loading_spinner_72.gif" alt=""><span>Loading assignment…</span></div></section>`;
@@ -810,7 +811,7 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
     if(assignmentType==='lti_submission' && assignmentWebUrl){
       if(A.platform==='web'){
         const launchMatch=String(assignmentWebUrl).match(/(?:https:\/\/api\.schoology\.com)?\/?v?2?\/?sections\/(\d+)\/applications\/(\d+)\/launch\/?$/i);
-        try{let target=assignmentWebUrl;if(launchMatch){const launch=await A.launchCourseApp({sectionId:Number(launchMatch[1]),appId:Number(launchMatch[2]),launchUrl:assignmentWebUrl});target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||'';}if(!target)throw new Error('Schoology did not return an LTI launch URL.');const u=new URL(target,location.href);if(u.protocol!=='https:')throw new Error('Only secure HTTPS LTI links can be opened.');if(ltiLaunchTab&&!ltiLaunchTab.closed)ltiLaunchTab.location.href=u.href;else throw new Error('Your browser blocked the LTI assignment tab. Allow pop-ups for this site and try again.');}catch(error){ltiLaunchTab?.close();throw error;}
+        try{let target=assignmentWebUrl;if(launchMatch){const launch=await A.launchCourseApp({sectionId:Number(launchMatch[1]),appId:Number(launchMatch[2]),launchUrl:assignmentWebUrl});target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||'';}if(!target)throw new Error('Schoology did not return an LTI launch URL.');const u=new URL(target,location.href);if(u.protocol!=='https:')throw new Error('Only secure HTTPS LTI links can be opened.');if(ltiLaunchTab&&!ltiLaunchTab.closed)ltiLaunchTab.location.href=u.href;else { const opened=window.open(u.href,'_blank'); if(!opened) window.location.href=u.href; }}catch(error){ltiLaunchTab?.close();throw error;}
       }else showEmbeddedWeb(assignmentWebUrl,at.title||'Assignment',{allowBrowser:false,lti:true});
       return;
     }
@@ -867,7 +868,7 @@ async function openAssignmentComments(sectionId,assignmentId,assignment){
   const c=state.assignmentLandscape?(document.getElementById('assignmentTabContent')||document.getElementById('content')):(document.getElementById('assignmentTabContent')||document.getElementById('content'));if(!c)return;
   c.innerHTML='<div class="commentsPage officialComments"><div class="loading"><img class="androidInlineSpinner" src="assets/android_loading_spinner_72.gif" alt=""><span>Loading comments…</span></div></div>';
   try{
-    const x=await A.api({path:`course/${sectionId}/materials/assignments/${commentOnId}/comments`,params:{start:0,limit:50,with_attachments:'TRUE',richtext:1}});
+    const x=await A.assignmentComments({sectionId,assignmentId:commentOnId,method:'GET',params:{start:0,limit:50,with_attachments:'TRUE',richtext:1}});
     const arr=x.comments||x.comment||[];
     const flat=[];
     const walk=(node,depth=0)=>{if(!node||typeof node!=='object')return;flat.push({node,depth});const children=node.children||node.replies||node.comments||node.comment_replies||[];if(Array.isArray(children))children.forEach(ch=>walk(ch,depth+1));};
@@ -927,7 +928,7 @@ function openAssignmentCommentComposer(sectionId,assignmentId,parentId='0'){
       const resourceId=wrap.dataset.resourceId||'';
       if(selectedCommentFile){const fileId=await A.uploadSchoologyFile({file:selectedCommentFile,filename:selectedCommentFile.name});params['file-attachment']={id:[Number(fileId)||fileId]}}
       if(resourceId)params.attachments=[{resource:Number(resourceId)||resourceId}];
-      const commentOnId=Number(assignmentId)||Number(state.assignmentData?.id||0);const commentPath=Number(parentId)>0?`course/${sectionId}/materials/assignments/${commentOnId}/create_reply/${Number(parentId)}`:`course/${sectionId}/materials/assignments/${commentOnId}/create_comment`;delete params.parent_id;await A.api({path:commentPath,method:'POST',params,json:true});
+      const commentOnId=Number(assignmentId)||Number(state.assignmentData?.id||0);delete params.parent_id;await A.assignmentComments({sectionId,assignmentId:commentOnId,parentId:Number(parentId)||0,method:'POST',params});
       close();await openAssignmentComments(sectionId,assignmentId,state.assignmentData||{})
     }catch(e){send.disabled=false;alert('Unable to post comment: '+e.message)}
   });
@@ -1216,7 +1217,7 @@ function showSchoologyRequestError(error,retry){
 window.schoologyShowError=showSchoologyRequestError;
 
 function openWithPressTransition(el,fn){if(!el){fn();return;}el.classList.add('pressTransition');setTimeout(()=>{el.classList.remove('pressTransition');fn()},110)}
-function openAssignmentWithPressTransition(el,sectionId,assignmentId){const tab=A.platform==='web'?window.open('about:blank','_blank'):null;openWithPressTransition(el,()=>showAssignment(sectionId,assignmentId,tab));}
+function openAssignmentWithPressTransition(el,sectionId,assignmentId){openWithPressTransition(el,()=>showAssignment(sectionId,assignmentId));}
 async function resolveAssignmentSection(assignmentId){
  const id=Number(assignmentId); if(!id)return 0;
  const cached=window.__schoologyDashboardCourses||window.__schoologyCourses||[];
@@ -1315,7 +1316,7 @@ async function routeSchoologyLink(rawUrl){
  const mGroup=path.match(/^\/groups?\/(\d+)(?:\/.*)?$/i);if(mGroup){const gid=Number(mGroup[1]);let group={id:gid,name:'Group'};try{const gx=await A.api({path:`groups/${gid}`,params:{}});group=gx?.group||gx||group;}catch{}state.tab='groups';state.currentGroup=group;state.toolbarTitle=group.name||group.title||'Group';render();await showGroup(group,'updates');return true}
  if(mCourse||mSection){const sid=Number((mCourse||mSection)[1]);const gp=(mCourse&&mCourse[2])?Number(mCourse[2]):0;try{const x=await A.api({path:`sections/${sid}`,params:{}});const course=x?.section||x;state.embeddedTitle=null;await showCourse(course,'materials');if(gp){let openedFile=false;try{const dx=await A.api({path:`sections/${sid}/documents/${gp}`,params:{}});const d=dx?.document||dx;const aa=d?.attachments||d?.attachment||{};const files=aa?.files?.file||aa?.files||aa?.file||[];const f=Array.isArray(files)?files[0]:files;const docType=String(d?.document_type||d?.documentType||d?.template_document_type||d?.templateDocumentType||'').toLowerCase();const parentFolder=Number(d?.folder_id??d?.folderId??d?.collection_folder_id??d?.collectionFolderId??d?.parent_folder_id??d?.parentFolderId??0);if(parentFolder)await loadFolder(course,parentFolder,true,'Folder');const fileUrl=f?.resolveDownloadUrl||f?.resolve_download_url||f?.converted_download_path||f?.convertedDownloadPath||f?.download_path||f?.downloadPath||f?.url||'';if(docType==='file'||fileUrl){const url=fileUrl||d?.download_path||d?.downloadPath||d?.url||'';if(url){const r=await downloadMaterialWithProgress({url,filename:f?.filename||f?.fileName||d?.title||'Schoology file',mime:f?.filemime||f?.fileMIME||'application/octet-stream'});;openedFile=true;}}}catch(e){console.warn('Unable to resolve deep-linked course material as a document:',e)}if(!openedFile){try{const pending=[0],visited=new Set();let item=null;while(pending.length&&visited.size<100&&!item){const folderId=pending.shift();if(visited.has(String(folderId)))continue;visited.add(String(folderId));const fx=await A.api({path:`courses/${sid}/folder/${folderId}`,params:{}});const items=fx?.['folder-item']||fx?.folder_item||fx?.folderItems||fx?.items||[];item=items.find(v=>String(v.id||v.document_id||v.documentId||'')===String(gp)&&String(v.type||'').toLowerCase()!=='folder')||null;for(const v of items){if(String(v.type||'').toLowerCase()==='folder'&&v.id!=null&&!visited.has(String(v.id)))pending.push(Number(v.id));}}if(item){let detail={};try{const dx=await A.api({path:`sections/${sid}/documents/${gp}`,params:{}});detail=dx?.document||dx||{}}catch{}const merged={...item,...detail};if(!merged.template_type&&!merged.templateType&&!merged.type)merged.type='document';if(!merged.document_type&&!merged.documentType&&!merged.template_document_type&&!merged.templateDocumentType&&(item.type==='file'||item.type==='document'))merged.document_type='file';const attachment=firstAttachment(merged,'files')||{};const materialUrl=attachment.resolveDownloadUrl||attachment.resolve_download_url||attachment.converted_download_path||attachment.convertedDownloadPath||attachment.download_path||attachment.downloadPath||attachment.file_download_url||attachment.fileDownloadURL||merged.resolveDownloadUrl||merged.download_path||merged.downloadPath||merged.converted_download_path||merged.convertedDownloadPath||merged.file_url||merged.fileUrl||merged.url||'';if(resourceDocumentType(merged)==='file'||materialUrl){if(!materialUrl)throw new Error('Schoology did not provide a file URL.');const result=await downloadMaterialWithProgress({url:materialUrl,filename:attachment.filename||attachment.fileName||merged.filename||merged.fileName||merged.title||'Schoology file',mime:attachment.filemime||attachment.fileMIME||merged.filemime||merged.fileMIME||'application/octet-stream'});openedFile=true;}else{await openCollectionResource(merged,null);openedFile=true;}}}catch(e){console.warn('Unable to resolve deep-linked material through the official course folder API:',e)}if(!openedFile)await loadFolder(course,gp,true,'Folder');}}return true}catch(e){showSchoologyRequestError(e);return true}}
  if(mCourseAssignment){const sid=Number(mCourseAssignment[1]),aid=Number(mCourseAssignment[2]);showAssignment(sid,aid);return true}
- if(mAssignment){const aid=Number(mAssignment[1]),tab=A.platform==='web'?window.open('about:blank','_blank'):null;const sid=await resolveAssignmentSection(aid);if(sid){showAssignment(sid,aid,tab);return true}tab?.close();showEmbeddedWeb(rawUrl,'Assignment');return true}
+ if(mAssignment){const aid=Number(mAssignment[1]);const sid=await resolveAssignmentSection(aid);if(sid){showAssignment(sid,aid);return true}showEmbeddedWeb(rawUrl,'Assignment');return true}
  const mQuiz=path.match(/^\/(?:quiz|quizzes|assessment|assessments|assessment_v2|managed_assessment)(?:\/view)?\/(\d+)$/i);if(mQuiz){showEmbeddedWeb(scheme?`https://app.schoology.com/${path.replace(/^\//,'')}`:rawUrl,'Quiz',{allowBrowser:false});return true}
  const mMaterials=path.match(/^\/(?:course|section)\/(?:s)?(\d+)\/materials(?:\/(?:folder|gp)\/(\d+))?$/i);if(mMaterials){try{const x=await A.api({path:`sections/${Number(mMaterials[1])}`,params:{}});const course=x?.section||x;showCourse(course,'materials');if(mMaterials[2])await loadFolder(course,Number(mMaterials[2]),true,'Folder');return true}catch(e){showSchoologyRequestError(e);return true}}
  const mDocument=path.match(/^\/(?:course|section)\/(?:s)?(\d+)\/documents\/(\d+)$/i);if(mDocument){try{const x=await A.api({path:`sections/${Number(mDocument[1])}/documents/${Number(mDocument[2])}`,params:{}});const d=x?.document||x;const type=String(d?.type||d?.document_type||'').toLowerCase();const url=d?.web_url||d?.webUrl||d?.url||d?.link_url||d?.linkURL;if(url||['link','web_content','external_tool','embed','video'].includes(type)){showEmbeddedWeb(url||rawUrl,d?.title||'Resource');return true}showCourse(x?.section||{id:Number(mDocument[1])},'materials');return true}catch(e){showSchoologyRequestError(e);return true}}

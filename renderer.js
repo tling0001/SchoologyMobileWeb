@@ -810,8 +810,39 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
     const assignmentWebUrl=at.web_url||at.webUrl||at.launch_url||at.launchUrl||'';
     if(assignmentType==='lti_submission' && assignmentWebUrl){
       if(A.platform==='web'){
-        const launchMatch=String(assignmentWebUrl).match(/(?:https:\/\/api\.schoology\.com)?\/?v?2?\/?sections\/(\d+)\/applications\/(\d+)\/launch\/?$/i);
-        try{let target=assignmentWebUrl;if(launchMatch){const launch=await A.launchCourseApp({sectionId:Number(launchMatch[1]),appId:Number(launchMatch[2]),launchUrl:assignmentWebUrl});target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||'';}if(!target)throw new Error('Schoology did not return an LTI launch URL.');const u=new URL(target,location.href);if(u.protocol!=='https:')throw new Error('Only secure HTTPS LTI links can be opened.');if(ltiLaunchTab&&!ltiLaunchTab.closed)ltiLaunchTab.location.href=u.href;else { const opened=window.open(u.href,'_blank'); if(!opened) window.location.href=u.href; }}catch(error){ltiLaunchTab?.close();throw error;}
+        try{
+          // LTI assignment web URLs may be emitted as v1 singular-resource or
+          // v2 plural-resource launch endpoints, and can include query strings.
+          // Resolve those to the same signed launch-token flow used by course apps.
+          let launchTarget=String(assignmentWebUrl);
+          let appId=Number(at.application_id||at.applicationId||at.app_id||at.appId||at.external_tool_id||at.externalToolId||0);
+          let launchSectionId=Number(sectionId);
+          try{
+            const parsed=new URL(launchTarget,'https://api.schoology.com');
+            const match=parsed.pathname.match(/^\/(?:v[12]\/)?sections?\/(\d+)\/applications?\/(\d+)\/launch\/?$/i);
+            if(match){launchSectionId=Number(match[1]);appId=Number(match[2]);}
+            else if(parsed.hostname.toLowerCase()==='api.schoology.com'&&/\/launch\/?$/i.test(parsed.pathname)){
+              const queryApp=Number(parsed.searchParams.get('app_id')||parsed.searchParams.get('application_id')||0);
+              const querySection=Number(parsed.searchParams.get('section_id')||parsed.searchParams.get('sectionId')||0);
+              if(queryApp>0)appId=queryApp;if(querySection>0)launchSectionId=querySection;
+            }
+          }catch{}
+          const ltiLaunchTab=window.open('about:blank','_blank');
+          try{
+            let target='';
+            if(Number.isSafeInteger(appId)&&appId>0&&Number.isSafeInteger(launchSectionId)&&launchSectionId>0){
+              const launch=await A.launchCourseApp({sectionId:launchSectionId,appId});
+              target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.launch_url||launch?.launchUrl||launch?.data?.url||launch?.data?.launchTokenUrl||'';
+            }else if(/^https:\/\//i.test(launchTarget)){
+              // Preserve a valid direct HTTPS LTI URL when Schoology did not
+              // provide a course-app identifier that can be token-launched.
+              target=launchTarget;
+            }
+            if(!target)throw new Error('Schoology did not provide an authenticated LTI launch URL.');
+            const u=new URL(target,location.href);if(u.protocol!=='https:')throw new Error('Only secure HTTPS LTI links can be opened.');
+            if(ltiLaunchTab&&!ltiLaunchTab.closed)ltiLaunchTab.location.href=u.href;else{const opened=window.open(u.href,'_blank');if(!opened)window.location.href=u.href;}
+          }catch(error){ltiLaunchTab?.close();throw error;}
+        }catch(error){throw error;}
       }else showEmbeddedWeb(assignmentWebUrl,at.title||'Assignment',{allowBrowser:false,lti:true});
       return;
     }

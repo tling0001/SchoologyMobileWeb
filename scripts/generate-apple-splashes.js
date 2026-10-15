@@ -2,7 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const splashHandler = require('../api/apple-splash.js');
+const splashHandler = require('../lib/apple-splash.js');
 
 const root = path.resolve(__dirname, '..');
 const logo = splashHandler.decodePng(fs.readFileSync(path.join(root, 'assets', 'logo_schoology.png')));

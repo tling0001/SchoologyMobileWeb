@@ -2232,3 +2232,24 @@ body{padding-bottom:env(safe-area-inset-bottom,0px)}
 .shell{height:var(--app-height,100dvh)!important}
 .shell>main#content{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,0px)}
 .activity,.page,.settingsPage,.messageDetail,.embeddedPage{scroll-padding-bottom:env(safe-area-inset-bottom,0px)}
+
+
+/* iOS installed PWA: let the status bar overlay the page, then reserve its
+   reported safe-area height only on screens with the Schoology app bar. */
+html.ios-standalone,
+html.ios-standalone body{background:#002137}
+html.ios-standalone .shell{
+  padding-top:env(safe-area-inset-top,0px)!important;
+  height:var(--app-height,100dvh)!important;
+  min-height:var(--app-height,100dvh)!important;
+  background:#002137!important;
+}
+html.ios-standalone .shell>main#content{
+  height:calc(var(--app-height,100dvh) - 56px - env(safe-area-inset-top,0px))!important;
+  max-height:calc(var(--app-height,100dvh) - 56px - env(safe-area-inset-top,0px));
+}
+html.ios-standalone .drawer{
+  padding-top:env(safe-area-inset-top,0px)!important;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  box-sizing:border-box;
+}

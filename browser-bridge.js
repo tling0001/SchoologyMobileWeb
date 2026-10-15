@@ -141,6 +141,26 @@
     openDownloadedFile: async () => unavailable('Opening a downloaded file in a desktop application'),
     revealDownloadedFile: async () => unavailable('Showing a downloaded file in the operating system'),
     launchCourseApp: async input => { const sectionId=Number(input?.sectionId??input?.section_id??0),appId=Number(input?.appId??input?.app_id??0);let path='';if(input?.launchUrl||input?.href){const u=new URL(String(input.launchUrl||input.href),'https://api.schoology.com');if(u.protocol!=='https:'||u.hostname!=='api.schoology.com'||!/^\/v2\/sections\/\d+\/applications\/\d+\/launch\/?$/i.test(u.pathname))throw new Error('Schoology returned an unsupported course-app launch link.');path=u.pathname.replace(/^\/v2\//,'v2/');}else if(Number.isSafeInteger(sectionId)&&sectionId>0&&Number.isSafeInteger(appId)&&appId>0)path=`v2/sections/${sectionId}/applications/${appId}/launch`;else if(Number.isSafeInteger(appId)&&appId>0)path=`v2/resources/applications/${appId}/launch`;else throw new Error('The course app did not provide a valid launch link.');return api({path,method:'GET'}); },
+    launchLtiAssignment: async input => {
+      const sectionId=Number(input?.sectionId),toolId=Number(input?.toolId);
+      if(!Number.isSafeInteger(sectionId)||sectionId<1||!Number.isSafeInteger(toolId)||toolId<1)throw new Error('The LTI assignment did not provide a valid course and assignment ID.');
+      const tab=window.open('about:blank','_blank');
+      if(!tab)throw new Error('Your browser blocked the LTI assignment tab. Allow pop-ups for this site and try again.');
+      try{
+        try{tab.opener=null}catch{}
+        const response=await api({path:`sections/${sectionId}/documents/${toolId}`,method:'GET'});
+        const doc=response?.document||response?.data?.document||response?.data||response||{};
+        const attachments=doc?.attachments||response?.attachments||{};
+        const tools=attachments?.external_tools?.external_tool||attachments?.external_tool||doc?.external_tools?.external_tool||[];
+        const tool=Array.isArray(tools)?tools[0]:tools;
+        const rawUrl=tool?.url||tool?.launch_url||tool?.launchUrl||doc?.url||doc?.launch_url||doc?.launchUrl;
+        if(!rawUrl)throw new Error('Schoology did not return an LTI launch URL for this assignment.');
+        const launchUrl=new URL(String(rawUrl), 'https://app.schoology.com/');
+        if(launchUrl.protocol!=='https:')throw new Error('Schoology returned an unsupported LTI launch URL.');
+        tab.location.replace(launchUrl.href);
+        return true;
+      }catch(error){try{tab.close()}catch{};throw error}
+    },
     checkForUpdates: async () => unavailable('Desktop app updates'),
     downloadLiquidGlass: async () => unavailable('Desktop theme installation'),
     downloadExpressive: async () => unavailable('Desktop theme installation'),

@@ -2336,6 +2336,17 @@ html.ios-standalone body {
   overflow: hidden;
   background: #22303e !important;
 }
+html.ios-standalone body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: #22303e;
+  z-index: 9998;
+  pointer-events: none;
+}
 html.ios-standalone #app {
   height: var(--app-height, 100dvh) !important;
   min-height: 0 !important;

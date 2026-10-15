@@ -110,6 +110,7 @@
     loginExternalSchool: async () => unavailable('District single-sign-on browser login. Use Schoology username/password or QR sign-in for now'),
     schoolSearch: async query => { const r = await fetch('/api/school-search?q=' + encodeURIComponent(query), { credentials: 'same-origin', cache: 'no-store' }); return (await readResponse(r)).schools || []; },
     api,
+    assignmentComments: async input => { const auth=requireAuth(); const r=await jsonRequest('/api/schoology/assignment-comments', { sectionId: input?.sectionId, assignmentId: input?.assignmentId, parentId: input?.parentId, method: input?.method || 'GET', params: input?.params || {}, oauth_token: auth.oauth_token, oauth_token_secret: auth.oauth_token_secret, user: auth.user, userId: auth.userId }); return r.data; },
     logout: async () => { clearAuth(); try { await jsonRequest('/api/auth/logout', {}); } catch (_) {} return true; },
     getThemeMode: async () => settings.themeMode,
     setThemeMode: async value => { settings.themeMode = ['light','dark','system'].includes(value) ? value : 'system'; saveSettings(); return settings.themeMode; },

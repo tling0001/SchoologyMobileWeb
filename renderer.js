@@ -35,7 +35,7 @@ document.addEventListener('click',async event=>{
  const anchor=event.target?.closest?.('a[href]');if(!anchor)return;
  const rich=anchor.closest('.activityBody,.schoolProfileUpdateBody,.schoolProfileUpdate,.assignmentDescription,.commentBodyHtml,.discussionBody,.messageThreadBody,.notificationBodyRich,.groupFullUpdate,.androidCommentContent,.activityMedia');
  if(!rich)return;
- const href=anchor.href||anchor.getAttribute('href')||'';if(!/^https?:\\/\\//i.test(href))return;
+ const href=anchor.href||anchor.getAttribute('href')||'';if(!/^https?:[/][/]/i.test(href))return;
  event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
  try{const result=await A.openExternal(href);if(result)showAppDialog('Unable to open link',result)}catch(error){showAppDialog('Unable to open link',error.message||String(error))}
 },true);

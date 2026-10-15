@@ -2389,3 +2389,47 @@ html.ios-standalone .androidSplash {
   min-height: 0 !important;
   padding: 0 !important;
 }
+
+
+/* iOS installed PWA safe-area sizing: keep both system inset bands outside
+   the app surface so login/QR/fatal screens cannot leave a one-sided gutter. */
+html.ios-standalone body::before {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: env(safe-area-inset-top, 0px) !important;
+  background: #22303e !important;
+  z-index: 10000 !important;
+  pointer-events: none !important;
+}
+html.ios-standalone body::after {
+  content: "" !important;
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: env(safe-area-inset-bottom, 0px) !important;
+  background: #22303e !important;
+  z-index: 10000 !important;
+  pointer-events: none !important;
+}
+html.ios-standalone #app {
+  position: relative !important;
+  height: var(--app-height, 100dvh) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  background: #22303e !important;
+}
+html.ios-standalone .login,
+html.ios-standalone .qr,
+html.ios-standalone .fatal {
+  height: calc(var(--app-height, 100dvh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+  min-height: 0 !important;
+  margin-top: env(safe-area-inset-top, 0px) !important;
+  box-sizing: border-box !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+html.ios-standalone .qr { padding-top: 75px !important; }
+html.ios-standalone .fatal { padding: 32px !important; }

@@ -2433,3 +2433,44 @@ html.ios-standalone .fatal {
 }
 html.ios-standalone .qr { padding-top: 75px !important; }
 html.ios-standalone .fatal { padding: 32px !important; }
+
+
+/* iOS installed PWA: reserve both safe-area insets inside the app viewport.
+   Keeping the shell inside this padded box prevents the toolbar and bottom content
+   from sitting beneath the status bar or home indicator. */
+html.ios-standalone body { height: var(--app-height, 100dvh) !important; overflow: hidden !important; }
+html.ios-standalone #app {
+  position: relative !important;
+  width: 100% !important;
+  height: var(--app-height, 100dvh) !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  overflow: hidden !important;
+}
+html.ios-standalone #app > .shell,
+html.ios-standalone #app > .login,
+html.ios-standalone #app > .qr,
+html.ios-standalone #app > .fatal,
+html.ios-standalone #app > .startup {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  margin-top: 0 !important;
+  box-sizing: border-box !important;
+}
+html.ios-standalone #app > .shell { padding-top: 0 !important; padding-bottom: 0 !important; }
+html.ios-standalone #app > .shell > .toolbar,
+html.ios-standalone #app > .shell .toolbar {
+  height: 56px !important;
+  min-height: 56px !important;
+  flex-basis: 56px !important;
+  padding-top: 0 !important;
+}
+html.ios-standalone #app > .shell > main#content {
+  height: calc(100% - 56px) !important;
+  max-height: calc(100% - 56px) !important;
+}
+html.ios-standalone body::before { height: 0 !important; }
+html.ios-standalone body::after { height: 0 !important; }

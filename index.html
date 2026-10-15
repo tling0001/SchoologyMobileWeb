@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#002137">
 <meta name="application-name" content="Schoology">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Schoology">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/svg+xml" href="/assets/pwa-icon.svg">
@@ -13,7 +14,7 @@
 <meta name="description" content="Schoology browser port using the original Schoology Desktop Port renderer, stylesheet, and image assets.">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' https://cdn.jsdelivr.net; media-src 'self' https: blob:; connect-src 'self' https: http: blob:;">
 <title>Schoology</title>
-<script>(function(){function setAppHeight(){var vv=window.visualViewport;var h=vv&&vv.height?vv.height:window.innerHeight;if(h>0)document.documentElement.style.setProperty("--app-height",h+"px")}setAppHeight();window.addEventListener("resize",setAppHeight,{passive:true});window.addEventListener("orientationchange",function(){setTimeout(setAppHeight,100)},{passive:true});if(window.visualViewport){window.visualViewport.addEventListener("resize",setAppHeight,{passive:true});window.visualViewport.addEventListener("scroll",setAppHeight,{passive:true})}})();</script>
+<script>(function(){var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);var standalone=window.navigator.standalone===true||(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches);if(ios&&standalone)document.documentElement.classList.add("ios-standalone");function setAppHeight(){var vv=window.visualViewport;var h=vv&&vv.height?vv.height:window.innerHeight;if(h>0)document.documentElement.style.setProperty("--app-height",h+"px")}setAppHeight();window.addEventListener("resize",setAppHeight,{passive:true});window.addEventListener("orientationchange",function(){setTimeout(setAppHeight,100)},{passive:true});if(window.visualViewport){window.visualViewport.addEventListener("resize",setAppHeight,{passive:true});window.visualViewport.addEventListener("scroll",setAppHeight,{passive:true})}})();</script>
 <link rel="stylesheet" href="styles.css">
 <link rel="apple-touch-startup-image" href="/assets/apple-splash/apple-touch-startup-image-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
 <link rel="apple-touch-startup-image" href="/assets/apple-splash/apple-touch-startup-image-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">

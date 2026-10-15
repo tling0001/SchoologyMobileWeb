@@ -150,14 +150,30 @@
         try{tab.opener=null}catch{}
         const response=await api({path:`sections/${sectionId}/documents/${toolId}`,method:'GET'});
         const doc=response?.document||response?.data?.document||response?.data||response||{};
+        const links=doc?.links||doc?.['@links']||response?.links||response?.['@links']||{};
         const attachments=doc?.attachments||response?.attachments||{};
         const tools=attachments?.external_tools?.external_tool||attachments?.external_tool||doc?.external_tools?.external_tool||[];
         const tool=Array.isArray(tools)?tools[0]:tools;
-        const rawUrl=tool?.url||tool?.launch_url||tool?.launchUrl||doc?.url||doc?.launch_url||doc?.launchUrl;
-        if(!rawUrl)throw new Error('Schoology did not return an LTI launch URL for this assignment.');
-        const launchUrl=new URL(String(rawUrl), 'https://app.schoology.com/');
-        if(launchUrl.protocol!=='https:')throw new Error('Schoology returned an unsupported LTI launch URL.');
-        tab.location.replace(launchUrl.href);
+        const rawLaunch=links?.launch?.href||links?.launch?.url||links?.launch||doc?.launch_url||doc?.launchUrl||response?.launch_url||response?.launchUrl||tool?.launch_url||tool?.launchUrl;
+        let launchUrl='';
+        if(typeof rawLaunch==='string'&&rawLaunch.trim()){
+          const candidate=new URL(rawLaunch,'https://api.schoology.com');
+          if(candidate.protocol!=='https:')throw new Error('Schoology returned an unsupported LTI launch URL.');
+          if(candidate.hostname.toLowerCase()==='api.schoology.com'&&/^\/v2\/sections\/\d+\/applications\/\d+\/launch\/?$/i.test(candidate.pathname)){
+            const launched=await api({path:candidate.pathname.replace(/^\/v2\//,'v2/'),method:'GET'});
+            launchUrl=launched?.url||launched?.launchTokenUrl||launched?.launch_token_url||launched?.data?.url||launched?.data?.launchTokenUrl||'';
+          }else if(candidate.hostname.toLowerCase()==='app.schoology.com'||candidate.hostname.toLowerCase().endsWith('.schoology.com')){
+            launchUrl=candidate.href;
+          }
+        }
+        if(!launchUrl){
+          // Directly navigating to an external-tool URL skips Schoology's signed
+          // LTI hand-off. Start at Schoology so it can create the launch request.
+          launchUrl=`https://app.schoology.com/section/${sectionId}/lti/${toolId}`;
+        }
+        const finalUrl=new URL(launchUrl,'https://app.schoology.com/');
+        if(finalUrl.protocol!=='https:'||!/(^|\\.)schoology\\.com$/i.test(finalUrl.hostname))throw new Error('Schoology did not return a supported Schoology-managed LTI launch URL.');
+        tab.location.replace(finalUrl.href);
         return true;
       }catch(error){try{tab.close()}catch{};throw error}
     },

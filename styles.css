@@ -2253,3 +2253,35 @@ html.ios-standalone .drawer{
   padding-bottom:env(safe-area-inset-bottom,0px);
   box-sizing:border-box;
 }
+
+
+/* iOS installed PWA safe area: reserve space only at the top.
+   Put the inset inside the toolbar so its background fills the status-bar area
+   and the toolbar contents begin below the status bar. */
+html.ios-standalone body{padding-top:0!important;padding-bottom:0!important}
+html.ios-standalone .shell{
+  padding-top:0!important;
+  height:var(--app-height,100dvh)!important;
+  min-height:var(--app-height,100dvh)!important;
+  box-sizing:border-box!important;
+}
+html.ios-standalone .shell>.toolbar{
+  height:calc(56px + env(safe-area-inset-top,0px))!important;
+  min-height:calc(56px + env(safe-area-inset-top,0px))!important;
+  flex:0 0 calc(56px + env(safe-area-inset-top,0px))!important;
+  box-sizing:border-box!important;
+  padding:env(safe-area-inset-top,0px) 8px 0!important;
+}
+html.ios-standalone .shell>main#content{
+  height:calc(var(--app-height,100dvh) - 56px - env(safe-area-inset-top,0px))!important;
+  min-height:0!important;
+  max-height:calc(var(--app-height,100dvh) - 56px - env(safe-area-inset-top,0px))!important;
+  padding-bottom:0!important;
+}
+html.ios-standalone .drawer{
+  padding-top:env(safe-area-inset-top,0px)!important;
+  padding-bottom:0!important;
+}
+html.ios-standalone .login.loginAnimated:has(#schoolLogin)>.loginBottom{
+  bottom:24px!important;
+}

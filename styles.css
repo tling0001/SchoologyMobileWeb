@@ -2322,3 +2322,59 @@ html.ios-standalone .androidSplash{
   padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:0!important;
   box-sizing:border-box!important;overflow:hidden!important;
 }
+
+
+/* Final iOS standalone viewport fix: reserve the top safe area, never add a
+   bottom body/content inset, and size the app to the live visual viewport. */
+html.ios-standalone,
+html.ios-standalone body {
+  width: 100%;
+  height: 100%;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  background: #22303e !important;
+}
+html.ios-standalone #app {
+  height: var(--app-height, 100dvh) !important;
+  min-height: 0 !important;
+  overflow: hidden;
+  background: #22303e;
+}
+html.ios-standalone .login,
+html.ios-standalone .qr,
+html.ios-standalone .fatal {
+  height: var(--app-height, 100dvh) !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
+  padding-bottom: 0 !important;
+}
+html.ios-standalone .shell {
+  height: var(--app-height, 100dvh) !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+html.ios-standalone .shell > .toolbar,
+html.ios-standalone .shell .toolbar {
+  height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+  min-height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+  flex: 0 0 calc(56px + env(safe-area-inset-top, 0px)) !important;
+  padding: env(safe-area-inset-top, 0px) 8px 0 !important;
+  box-sizing: border-box !important;
+}
+html.ios-standalone .shell > main#content {
+  height: calc(var(--app-height, 100dvh) - 56px - env(safe-area-inset-top, 0px)) !important;
+  min-height: 0 !important;
+  max-height: calc(var(--app-height, 100dvh) - 56px - env(safe-area-inset-top, 0px)) !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+html.ios-standalone .androidSplash {
+  height: var(--app-height, 100dvh) !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+}

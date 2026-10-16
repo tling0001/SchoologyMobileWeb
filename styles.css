@@ -2474,3 +2474,23 @@ html.ios-standalone #app > .shell > main#content {
 }
 html.ios-standalone body::before { height: 0 !important; }
 html.ios-standalone body::after { height: 0 !important; }
+
+
+/* iOS installed PWA: reserve the physical safe-area above the Schoology app bar.
+   Keep the status-bar metadata unchanged; this is layout padding, not a style change. */
+html.ios-standalone .shell{
+  height:var(--app-height,100dvh)!important;
+  box-sizing:border-box!important;
+  padding-top:env(safe-area-inset-top,0px)!important;
+}
+html.ios-standalone .shell>.toolbar,
+html.ios-standalone .shell>header.toolbar{
+  margin-top:0!important;
+}
+html.ios-standalone .shell>main#content{
+  height:calc(var(--app-height,100dvh) - 56px - env(safe-area-inset-top,0px))!important;
+  min-height:0!important;
+}
+html.ios-standalone .shell>main#content.dashboardContentActive{
+  height:calc(var(--app-height,100dvh) - 56px - env(safe-area-inset-top,0px))!important;
+}

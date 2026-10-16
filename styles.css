@@ -2494,3 +2494,13 @@ html.ios-standalone .shell>main#content{
 html.ios-standalone .shell>main#content.dashboardContentActive{
   height:calc(var(--app-height,100dvh) - 56px - env(safe-area-inset-top,0px))!important;
 }
+
+
+/* Browser-port embedded Schoology pages: give the iframe a definite flex
+   viewport inside the app content area (percentage heights alone collapsed on
+   several mobile browsers). */
+#content.embeddedContentActive{position:relative!important;display:flex!important;flex-direction:column!important;min-height:0!important;overflow:hidden!important}
+#content.embeddedContentActive>.embeddedPage{position:relative!important;display:flex!important;flex:1 1 auto!important;flex-direction:column!important;width:100%!important;height:100%!important;min-height:0!important;overflow:hidden!important}
+#content.embeddedContentActive>.browserEmbeddedFrame{min-height:0!important}
+.browserEmbeddedFrame iframe{position:relative!important;display:block!important;flex:1 1 auto!important;width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;overflow:auto;background:#fff}
+.browserEmbeddedFrame .iframeFallbackNote{position:relative;flex:0 0 auto;z-index:1;background:var(--theme-surface,#fff);padding:8px 10px;margin:0;border-top:1px solid #d9dee3}

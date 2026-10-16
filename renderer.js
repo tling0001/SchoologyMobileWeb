@@ -831,7 +831,7 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
           // Some LTI submissions expose only a document/tool ID instead of an
           // application launch URL. Resolve that through Schoology's own launch
           // metadata API rather than opening the vendor URL without a hand-off.
-          const toolId=Number(at.external_tool_id??at.externalToolId??at.lti_tool_id??at.ltiToolId??at.tool_id??at.toolId);
+          const toolId=Number(at.external_tool_id??at.externalToolId??at.lti_tool_id??at.ltiToolId??at.tool_id??at.toolId??assignmentId);
           if(Number.isSafeInteger(toolId)&&toolId>0){
             await A.launchLtiAssignment({sectionId:Number(sectionId),toolId,tab:ltiLaunchTab});
             return;

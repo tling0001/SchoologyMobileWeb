@@ -144,8 +144,8 @@
     launchLtiAssignment: async input => {
       const sectionId=Number(input?.sectionId),toolId=Number(input?.toolId);
       if(!Number.isSafeInteger(sectionId)||sectionId<1||!Number.isSafeInteger(toolId)||toolId<1)throw new Error('The LTI assignment did not provide a valid course and assignment ID.');
-      const tab=window.open('about:blank','_blank');
-      if(!tab)throw new Error('Your browser blocked the LTI assignment tab. Allow pop-ups for this site and try again.');
+      const tab=input?.tab||window.open('about:blank','_blank');
+      if(!tab||tab.closed)throw new Error('Your browser blocked the LTI assignment tab. Allow pop-ups for this site and try again.');
       try{
         try{tab.opener=null}catch{}
         const response=await api({path:`sections/${sectionId}/documents/${toolId}`,method:'GET'});

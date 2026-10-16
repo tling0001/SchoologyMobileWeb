@@ -162,7 +162,7 @@
           if(candidate.hostname.toLowerCase()==='api.schoology.com'&&/^\/v2\/sections\/\d+\/applications\/\d+\/launch\/?$/i.test(candidate.pathname)){
             const launched=await api({path:candidate.pathname.replace(/^\/v2\//,'v2/'),method:'GET'});
             launchUrl=launched?.url||launched?.launchTokenUrl||launched?.launch_token_url||launched?.data?.url||launched?.data?.launchTokenUrl||'';
-          }else if(candidate.hostname.toLowerCase()==='app.schoology.com'||candidate.hostname.toLowerCase().endsWith('.schoology.com')){
+          }else if(candidate.hostname.toLowerCase()==='app.schoology.com'||candidate.hostname.toLowerCase().endsWith('.schoology.com')||candidate.hostname.toLowerCase()==='lms.lausd.net'){
             launchUrl=candidate.href;
           }
         }
@@ -172,7 +172,7 @@
           launchUrl=`https://app.schoology.com/section/${sectionId}/lti/${toolId}`;
         }
         const finalUrl=new URL(launchUrl,'https://app.schoology.com/');
-        if(finalUrl.protocol!=='https:'||!/(^|\\.)schoology\\.com$/i.test(finalUrl.hostname))throw new Error('Schoology did not return a supported Schoology-managed LTI launch URL.');
+        if(finalUrl.protocol!=='https:'||(!/(^|\\.)schoology\\.com$/i.test(finalUrl.hostname)&&finalUrl.hostname.toLowerCase()!=='lms.lausd.net'))throw new Error('Schoology did not return a supported Schoology-managed LTI launch URL.');
         tab.location.replace(finalUrl.href);
         return true;
       }catch(error){try{tab.close()}catch{};throw error}

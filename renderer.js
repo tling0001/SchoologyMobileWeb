@@ -812,7 +812,7 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
       if(A.platform==='web'){
         // If Schoology identifies the backing app, request its authenticated
         // launch-token URL just as the Course Apps screen does.
-        const appId=Number(at.application_id??at.applicationId??at.lti_app_id??at.ltiAppId??at.external_tool_id??at.externalToolId??at.app_id??at.appId);
+        const appId=Number(at.application_id??at.applicationId??at.lti_app_id??at.ltiAppId??at.app_id??at.appId);
         let target=assignmentWebUrl;
         let launchMatch=null;
         try{
@@ -822,8 +822,10 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
         }catch{}
         const sectionMatch=launchMatch||((Number.isSafeInteger(appId)&&appId>0)?[null,String(sectionId),String(appId)]:null);
         if(sectionMatch){
-          const launch=await A.launchCourseApp({sectionId:Number(sectionMatch[1]),appId:Number(sectionMatch[2])});
-          target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||launch?.launch_url||launch?.launchUrl||'';
+          try{
+            const launch=await A.launchCourseApp({sectionId:Number(sectionMatch[1]),appId:Number(sectionMatch[2])});
+            target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||launch?.launch_url||launch?.launchUrl||'';
+          }catch(error){console.warn('Schoology application launch endpoint failed; trying the LTI document hand-off:',error?.message||error)}
         }
         if(!target){
           // Some LTI submissions expose only a document/tool ID instead of an

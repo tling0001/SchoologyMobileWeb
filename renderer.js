@@ -808,7 +808,7 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
     // assignments use this LTI/external-tool path, so do not try to render them natively.
     const assignmentType=String(at.assignment_type||at.assignmentType||at.type||'').toLowerCase();
     const assignmentWebUrl=at.web_url||at.webUrl||at.launch_url||at.launchUrl||'';
-    if(assignmentType==='lti_submission' && assignmentWebUrl){
+    if(assignmentType==='lti_submission'){
       if(A.platform==='web'){
         // If Schoology identifies the backing app, request its authenticated
         // launch-token URL just as the Course Apps screen does.
@@ -824,7 +824,18 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
         if(sectionMatch){
           const launch=await A.launchCourseApp({sectionId:Number(sectionMatch[1]),appId:Number(sectionMatch[2])});
           target=launch?.url||launch?.launchTokenUrl||launch?.launch_token_url||launch?.data?.url||launch?.data?.launchTokenUrl||launch?.launch_url||launch?.launchUrl||'';
-          if(!target)throw new Error('Schoology did not return an authenticated LTI launch URL.');
+        }
+        if(!target){
+          // Some LTI submissions expose only a document/tool ID instead of an
+          // application launch URL. Resolve that through Schoology's own launch
+          // metadata API rather than opening the vendor URL without a hand-off.
+          const toolId=Number(at.external_tool_id??at.externalToolId??at.lti_tool_id??at.ltiToolId??at.tool_id??at.toolId);
+          if(Number.isSafeInteger(toolId)&&toolId>0){
+            await A.launchLtiAssignment({sectionId:Number(sectionId),toolId,tab:ltiLaunchTab});
+            return;
+          }
+          if(!assignmentWebUrl)throw new Error('Schoology did not provide an LTI launch URL or tool ID for this assignment.');
+          target=assignmentWebUrl;
         }
         const u=new URL(target,location.href);
         if(u.protocol!=='https:')throw new Error('Only secure HTTPS LTI links can be opened.');
@@ -1235,7 +1246,13 @@ function showSchoologyRequestError(error,retry){
 window.schoologyShowError=showSchoologyRequestError;
 
 function openWithPressTransition(el,fn){if(!el){fn();return;}el.classList.add('pressTransition');setTimeout(()=>{el.classList.remove('pressTransition');fn()},110)}
-function openAssignmentWithPressTransition(el,sectionId,assignmentId){openWithPressTransition(el,()=>showAssignment(sectionId,assignmentId));}
+function openAssignmentWithPressTransition(el,sectionId,assignmentId){
+ // Reserve the tab during the original click gesture. The assignment type and
+ // its Schoology-signed launch URL are only known after the API request returns.
+ const launchTab=A.platform==='web'?window.open('about:blank','_blank'):null;
+ if(launchTab){try{launchTab.document.title='Opening Schoology assignment…'}catch{}}
+ openWithPressTransition(el,()=>showAssignment(sectionId,assignmentId,launchTab));
+}
 async function resolveAssignmentSection(assignmentId){
  const id=Number(assignmentId); if(!id)return 0;
  const cached=window.__schoologyDashboardCourses||window.__schoologyCourses||[];

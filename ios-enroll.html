@@ -99,9 +99,9 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
        status.textContent='iPhone registered — waiting for app build…';
        detail.textContent='Keep this page open. Install Schoology will appear when the new Ad Hoc build is published.';
        if(await findInstallManifest())return;
-     }
-     if(data.status==='error'){status.textContent='Enrollment needs attention';detail.textContent=data.error||'Try again after the server configuration is corrected.';return;}
-     if(data.status==='registering')status.textContent='Registering iPhone with Apple…';
+     }else if(data.status==='error'){
+       status.textContent='Enrollment needs attention';detail.textContent=data.error||'Try again after the server configuration is corrected.';return;
+     }else if(data.status==='registering')status.textContent='Registering iPhone with Apple…';
      else if(data.status==='building')status.textContent='Registration complete — starting iPhone build…';
      else status.textContent='Waiting for iPhone…';
    }catch(e){status.textContent='Checking enrollment status…';}

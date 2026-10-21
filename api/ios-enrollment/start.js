@@ -6,6 +6,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
   try {
     S.checkOrigin(req);
+    E.requireAdmin(req);
     await S.rateLimit(req, 'ios-enrollment-start', 5, 300);
     const session = await E.createSession(req);
     return S.send(res, 201, { profileUrl: session.profileUrl, token: session.token, expiresInSeconds: session.expiresInSeconds }, { 'Cache-Control': 'no-store' });

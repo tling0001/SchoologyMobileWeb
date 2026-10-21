@@ -24,6 +24,8 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
 <div class="notice">This registers the device with Apple for Ad Hoc app distribution. It does not enroll the phone in mobile-device management or install a management profile.</div>
 <section id="intro">
 <p>Open this page on your computer, then scan the QR code with your iPhone camera. On the iPhone, follow the prompts to download and install the temporary enrollment profile.</p>
+<label for="adminSecret" style="display:block;font-weight:650;margin-top:16px">Enrollment administrator secret</label>
+<input id="adminSecret" type="password" autocomplete="current-password" required minlength="32" placeholder="Paste the Vercel IOS_ENROLLMENT_ADMIN_SECRET" style="display:block;width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;margin-top:6px;font:inherit">
 <button id="start">Create secure enrollment QR</button>
 <p class="small">Enrollment links expire after 30 minutes and can be used once.</p>
 </section>
@@ -45,7 +47,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
 (() => {
  const startButton=document.getElementById('start'), again=document.getElementById('again');
  const intro=document.getElementById('intro'), active=document.getElementById('active');
- const qr=document.getElementById('qr'), status=document.getElementById('status'), detail=document.getElementById('detail'), openPhone=document.getElementById('openPhone');
+ const qr=document.getElementById('qr'), status=document.getElementById('status'), detail=document.getElementById('detail'), openPhone=document.getElementById('openPhone'), adminSecret=document.getElementById('adminSecret');
  let pollHandle=null, token=null;
  function reset(){if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;qr.replaceChildren();active.classList.add('hidden');intro.classList.remove('hidden');startButton.disabled=false;startButton.textContent='Create secure enrollment QR';}
  async function poll(){
@@ -65,7 +67,8 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
  async function begin(){
    startButton.disabled=true;startButton.textContent='Creating secure link…';
    try{
-     const response=await fetch('/api/ios-enrollment/start',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+     const secret=adminSecret.value.trim();if(secret.length<32)throw new Error('Enter the administrator secret configured in Vercel.');
+     const response=await fetch('/api/ios-enrollment/start',{method:'POST',headers:{'Content-Type':'application/json','x-enrollment-admin':secret},body:'{}'});
      const data=await response.json();
      if(!response.ok)throw new Error(data.error||'Could not start enrollment.');
      token=data.token;intro.classList.add('hidden');active.classList.remove('hidden');

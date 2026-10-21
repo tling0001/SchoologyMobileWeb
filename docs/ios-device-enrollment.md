@@ -1,6 +1,6 @@
 # Schoology iOS Ad Hoc device enrollment
 
-This document describes the Expo-style enrollment flow planned for Schoology Mobile Web. The feature must not be considered production-ready until the profile-service response validation and end-to-end installation test are complete.
+This document tracks the Expo-style enrollment flow for Schoology Mobile Web. Server-side App Store Connect device/profile creation and GitHub Actions dispatch helpers now exist in `lib/ios-enrollment-server.js`. The public enrollment endpoints, Apple CMS signature/trust-chain verification, enrollment page/QR UI, and end-to-end installation test are still pending; the feature is not yet usable or production-ready.
 
 ## Flow
 
@@ -36,7 +36,7 @@ The Apple profile-service protocol requires validation of Apple's signed device 
 
 ## Provisioning profile and build requirements
 
-The existing iOS workflow downloads an Ad Hoc profile for `com.schoologytauri.app`. Downloading an old profile does not automatically add a newly registered device. The enrollment workflow must explicitly create or refresh an Ad Hoc profile through App Store Connect and pass the resulting profile identifier into the build workflow, or otherwise prove that the downloaded profile contains the newly enrolled UDID. The final IPA must be inspected to confirm its embedded profile contains that UDID and the expected bundle identifier.
+The existing iOS workflow downloads an Ad Hoc profile for `com.schoologytauri.app`. Downloading an old profile does not automatically add a newly registered device. The enrollment helper creates a fresh Ad Hoc profile through App Store Connect containing the verified device plus all enabled iOS devices returned by the API, then returns the profile UUID. The desktop workflow branch `feature/ios-profile-uuid-build` adds an optional `ios_adhoc_profile_uuid` input and selects that exact downloaded profile. It also stages the validated IPA for the QR manifest step. These workflow changes are in draft PR #7 and are not merged. The final IPA must still be inspected to confirm its embedded profile contains the newly enrolled UDID and the expected bundle identifier.
 
 ## Testing checklist
 

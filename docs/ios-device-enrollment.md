@@ -16,7 +16,7 @@ This feature lets the owner create a private invitation URL that recipients can 
 ## Invitation behavior and security
 
 - Invitation URLs are bearer links: anyone who possesses one can use it. Share them only with people you intend to authorize.
-- Each invitation expires after 7 days and can start up to 20 device enrollments. Generate a new invitation for more devices or after expiry.
+- Each invitation expires after 7 days and can start up to 20 enrollment sessions. Generate a new invitation for more devices or after expiry.
 - Each device enrollment session expires after 30 minutes and can only be completed once.
 - The administrator secret is required only to create invitation links. It is never sent to recipients or included in the invitation URL.
 - Enrollment initiation is rate-limited. The invitation token is random, stored in Redis as a SHA-256 hash, and use-count increments are atomic.

@@ -1,52 +1,56 @@
 # Schoology iOS Ad Hoc device enrollment
 
-This document tracks the Expo-style enrollment flow for Schoology Mobile Web. The feature branch now includes `/ios-enroll.html`, enrollment session/status endpoints, an Apple Profile Service response, and a callback that verifies CMS signatures against a pinned CA before validating the session challenge. Server-side App Store Connect device/profile creation and GitHub Actions dispatch helpers live in `lib/ios-enrollment-server.js`. The flow is still untested on a real iPhone and is not production-ready until the Vercel variables and current Apple device CA are configured and the exact provisioning certificate is confirmed.
+This feature lets the owner create a private invitation URL that recipients can use without receiving the enrollment administrator secret. It registers an iPhone for Ad Hoc distribution of Schoology (com.schoologytauri.app) and requests a fresh IPA build. This is not mobile-device management.
 
-## Flow
+## Owner and recipient flow
 
-1. An authenticated owner creates a short-lived enrollment session and QR URL.
-2. The iPhone opens the URL in Safari and installs a temporary Apple Profile Service configuration profile.
-3. Apple sends the requested device attributes to the profile-service endpoint. The server validates the signed CMS response, verifies the per-session challenge, and extracts the UDID.
-4. The server registers the device with App Store Connect using a server-side API key.
-5. The server creates or refreshes an Ad Hoc provisioning profile containing the registered device and the distribution certificate for `com.schoologytauri.app`.
-6. GitHub Actions builds and validates a new IPA against that profile and publishes a fresh install QR code.
-7. The enrollment session is marked complete and expires.
+1. The owner opens /ios-enroll.html and enters IOS_ENROLLMENT_ADMIN_SECRET to create a private invitation URL.
+2. The owner shares that URL privately. Recipients do not need the administrator secret.
+3. A recipient opens the invitation on a computer to show a QR code, or opens it directly in Safari on the iPhone.
+4. The server creates a single-use, 30-minute enrollment session and returns an Apple Profile Service configuration profile.
+5. The iPhone user follows Apple's prompts to install the temporary profile. Apple sends the device attributes to the callback.
+6. The server validates Apple's signed CMS response against a pinned, trusted Apple device certificate chain, validates the session challenge, and extracts the UDID.
+7. The server registers the verified device with App Store Connect, creates an Ad Hoc provisioning profile containing enabled devices and the configured distribution certificate, and dispatches the GitHub Actions build with that exact profile UUID.
+8. The status page reports when the build workflow has been queued. The IPA must finish building before it can be installed.
 
-## Security requirements
+## Invitation behavior and security
 
-- Use HTTPS only.
-- Generate cryptographically random, single-use enrollment tokens; store only token hashes in Upstash Redis and apply short expirations.
-- Verify Apple's signed CMS response against a pinned, trusted Apple device certificate chain before trusting any UDID. Do not trust plain XML, browser-supplied UDIDs, or the presence of a challenge alone.
+- Invitation URLs are bearer links: anyone who possesses one can use it. Share them only with people you intend to authorize.
+- Each invitation expires after 7 days and can start up to 20 device enrollments. Generate a new invitation for more devices or after expiry.
+- Each device enrollment session expires after 30 minutes and can only be completed once.
+- The administrator secret is required only to create invitation links. It is never sent to recipients or included in the invitation URL.
+- Enrollment initiation is rate-limited. The invitation token is random, stored in Redis as a SHA-256 hash, and use-count increments are atomic.
+- Use HTTPS only. Keep Apple API private keys and GitHub workflow-dispatch credentials in server-side Vercel environment variables.
+- Verify Apple's signed CMS response before trusting any UDID. Do not trust plain XML, browser-supplied UDIDs, or the presence of a challenge alone.
 - Validate the returned challenge against the exact session that issued the profile.
-- Keep App Store Connect API private keys and GitHub workflow-dispatch credentials in server-side Vercel environment variables. Never return them to the browser.
-- Restrict enrollment initiation and status views to the owner using an independent admin secret or authenticated control plane. Do not expose an endpoint that lets anonymous visitors trigger arbitrary builds.
-- Apply rate limits, replay protection, duplicate-device handling, and audit events without logging full UDIDs or secrets.
-- Treat Apple registration and profile creation as asynchronous operations. A successful HTTP response does not guarantee that Apple has finished processing a new device.
+- Avoid logging full UDIDs, invitation tokens, session tokens, or secrets.
+- Anyone with an invitation can cause device registration and a build request, so keep the invite private. Rate limiting is not a substitute for keeping the link private.
 
-## Vercel configuration planned
+## Vercel configuration
 
-- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`: existing Upstash Redis database.
-- `APPSTORE_API_KEY_ID`, `APPSTORE_ISSUER_ID`, and `APPSTORE_API_PRIVATE_KEY`: App Store Connect API credentials (reuse the existing values securely in Vercel; GitHub Actions secrets are not automatically shared with Vercel).
-- `IOS_ENROLLMENT_ADMIN_SECRET`: a new random secret used to authorize enrollment administration.
-- `GITHUB_ACTIONS_TOKEN`: a narrowly scoped token that can dispatch the iOS packaging workflow in `tling0001/schoology-for-desktop-port`.
-- `GITHUB_ACTIONS_REPOSITORY`: set to `tling0001/schoology-for-desktop-port`.
-- `GITHUB_ACTIONS_WORKFLOW`: set to `build-windows.yml`.
-- `IOS_ENROLLMENT_BASE_URL`: exact HTTPS production origin for the Vercel deployment.
-- `IOS_ENROLLMENT_ADMIN_SECRET`: random secret of at least 32 characters; required in the enrollment page before a QR can be created.
-- `APPLE_DEVICE_CA_PEM`: pinned Apple Profile Service device CA certificate in PEM format. Confirm the correct current certificate using Apple's current documentation before enabling enrollment.
-- `IOS_DISTRIBUTION_CERTIFICATE_ID`: App Store Connect certificate resource ID matching the iOS P12 imported by GitHub Actions.
+- UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN: Redis storage and rate limiting.
+- APPSTORE_API_KEY_ID, APPSTORE_ISSUER_ID, and APPSTORE_API_PRIVATE_KEY: App Store Connect API credentials. GitHub Actions secrets are not automatically shared with Vercel.
+- IOS_ENROLLMENT_ADMIN_SECRET: random secret of at least 32 characters, used by the owner only to create invitation links.
+- GITHUB_ACTIONS_TOKEN: narrowly scoped token that can dispatch the iOS packaging workflow in tling0001/schoology-for-desktop-port.
+- GITHUB_ACTIONS_REPOSITORY=tling0001/schoology-for-desktop-port.
+- GITHUB_ACTIONS_WORKFLOW=build-windows.yml.
+- IOS_ENROLLMENT_BASE_URL: exact HTTPS production origin for the Vercel deployment.
+- APPLE_DEVICE_CA_PEM: pinned Apple Profile Service device CA certificate. Confirm the correct current certificate using Apple's current documentation before enabling enrollment.
+- IOS_DISTRIBUTION_CERTIFICATE_ID: App Store Connect certificate resource ID matching the iOS P12 imported by GitHub Actions.
 
-The Apple profile-service protocol requires validation of Apple's signed device response. The callback uses OpenSSL CMS verification with `APPLE_DEVICE_CA_PEM` as a pinned trust anchor and fails closed if it is missing or validation fails. The callback must be tested with a current real iPhone and the configured CA before production use. Do not replace this check with a client-submitted UDID field.
+The profile-service callback uses OpenSSL CMS verification with APPLE_DEVICE_CA_PEM as a trust anchor and fails closed if the certificate is missing or validation fails. Confirm that the Vercel runtime provides OpenSSL, and test the callback on a real iPhone before production use. Do not replace this check with a client-submitted UDID.
 
 ## Provisioning profile and build requirements
 
-The existing iOS workflow downloads an Ad Hoc profile for `com.schoologytauri.app`. Downloading an old profile does not automatically add a newly registered device. The enrollment helper creates a fresh Ad Hoc profile through App Store Connect containing the verified device plus enabled iOS devices returned by the API, using the explicitly configured `IOS_DISTRIBUTION_CERTIFICATE_ID` that must match the P12 imported by GitHub Actions, then returns the profile UUID. The desktop workflow branch `feature/ios-profile-uuid-build` adds an optional `ios_adhoc_profile_uuid` input and selects that exact downloaded profile. It also stages the validated IPA for the QR manifest step. These workflow changes were merged from PR #7 (`f487086823a95663e35f059ace839df907383c7b`). The final IPA must still be inspected to confirm its embedded profile contains the newly enrolled UDID and the expected bundle identifier.
+The iOS workflow must download the exact Ad Hoc profile UUID supplied by the enrollment backend. A previously generated profile does not automatically include a newly registered device. The helper creates a fresh profile through App Store Connect and uses the explicitly configured IOS_DISTRIBUTION_CERTIFICATE_ID matching the P12 imported by GitHub Actions. The desktop workflow changes were merged in PR #7 (f487086823a95663e35f059ace839df907383c7b) to accept ios_adhoc_profile_uuid and stage the validated IPA for the QR manifest step. A successful build has not yet been confirmed; inspect the embedded profile to verify the expected bundle identifier and newly enrolled UDID.
 
 ## Testing checklist
 
-- Invalid, expired, reused, or mismatched enrollment token is rejected.
+- Invalid, expired, or exhausted invitation links are rejected.
+- Invalid, expired, reused, or mismatched enrollment tokens are rejected.
 - Invalid CMS signature, untrusted signer chain, malformed plist, missing UDID, and challenge mismatch are rejected.
 - Duplicate device registration is handled without creating duplicate devices.
 - A newly registered device is included in the exact profile used by the build.
-- The exported IPA contains the expected bundle identifier and UDID.
-- The final installation QR code points to the generated IPA/manifest and is reachable from an iPhone.
+- The final IPA contains com.schoologytauri.app and the newly enrolled UDID.
+- The installation QR code points to the generated IPA/manifest and is reachable from an iPhone.
+- The Vercel deployment stays within the Hobby plan's 12-function limit.

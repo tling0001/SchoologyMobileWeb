@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1769aa">
+<meta name="referrer" content="no-referrer">
 <title>Register iPhone · Schoology</title>
 <style>
 :root{color-scheme:light;--blue:#1769aa;--ink:#17212b;--muted:#607080;--line:#dce4ec;--bg:#f4f7fa}
@@ -12,7 +13,7 @@ main{width:min(100%,520px);background:white;border:1px solid var(--line);border-
 .logo{width:48px;height:48px;border-radius:14px;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:24px;font-weight:700;margin-bottom:18px}
 h1{font-size:27px;line-height:1.2;margin:0 0 10px}p{margin:8px 0;color:var(--muted)}.notice{background:#eef6ff;border-radius:14px;padding:14px;margin:18px 0;color:#244967;font-size:14px}
 button,.link{border:0;border-radius:12px;padding:13px 16px;background:var(--blue);color:white;font-weight:650;font-size:15px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;width:100%;margin-top:12px}
-button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154b77}#qr{display:grid;place-items:center;margin:20px auto;min-height:0}#qr canvas,#qr img{max-width:100%;height:auto!important}.status{font-weight:600;margin-top:16px;color:var(--ink)}.small{font-size:13px}.hidden{display:none}.steps{padding-left:20px;color:var(--muted)}.steps li{padding:4px 0}
+button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154b77}input{display:block;width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;margin-top:6px;font:inherit}#qr{display:grid;place-items:center;margin:20px auto;min-height:0}#qr canvas,#qr img{max-width:100%;height:auto!important}.status{font-weight:600;margin-top:16px;color:var(--ink)}.small{font-size:13px}.hidden{display:none}.steps{padding-left:20px;color:var(--muted)}.steps li{padding:4px 0}#inviteUrl{margin-top:12px;overflow-wrap:anywhere;background:#f4f7fa;border-radius:10px;padding:12px;font-size:14px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 </head>
@@ -22,65 +23,88 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
 <h1>Register your iPhone</h1>
 <p>Prepare your iPhone for installing the QR-distributed Schoology app.</p>
 <div class="notice">This registers the device with Apple for Ad Hoc app distribution. It does not enroll the phone in mobile-device management or install a management profile.</div>
-<section id="intro">
-<p>Open this page on your computer, then scan the QR code with your iPhone camera. On the iPhone, follow the prompts to download and install the temporary enrollment profile.</p>
+<section id="admin">
+<p><strong>Create a private invitation link</strong></p>
+<p>Only you need the administrator secret. Share the generated link with the people whose iPhones you want to register; they will not be asked for your secret.</p>
 <label for="adminSecret" style="display:block;font-weight:650;margin-top:16px">Enrollment administrator secret</label>
-<input id="adminSecret" type="password" autocomplete="current-password" required minlength="32" placeholder="Paste the Vercel IOS_ENROLLMENT_ADMIN_SECRET" style="display:block;width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;margin-top:6px;font:inherit">
-<button id="start">Create secure enrollment QR</button>
-<p class="small">Enrollment links expire after 30 minutes and can be used once.</p>
+<input id="adminSecret" type="password" autocomplete="current-password" minlength="32" placeholder="Enter your Vercel administrator secret">
+<button id="createInvite">Create private enrollment link</button>
+<div id="inviteResult" class="hidden">
+<p class="small">Share this link privately. It expires in 7 days and can register up to 20 devices.</p>
+<div id="inviteUrl"></div>
+<button id="copyInvite" class="secondary">Copy invitation link</button>
+<button id="useInvite">Use this link to enroll a device</button>
+</div>
+<p id="adminError" class="small" role="alert"></p>
+</section>
+<section id="recipient" class="hidden">
+<p>Your private invitation is valid. Preparing a secure, one-time enrollment session…</p>
 </section>
 <section id="active" class="hidden">
 <div id="qr" aria-label="iPhone enrollment QR code"></div>
-<a id="openPhone" class="link" href="#" target="_blank" rel="noreferrer">Open enrollment on this iPhone</a>
-<p id="status" class="status" role="status">Waiting for iPhone…</p>
-<p id="detail" class="small">Keep this page open while you install the temporary profile on your iPhone.</p>
-<button id="again" class="secondary">Start a new enrollment</button>
+<a id="openPhone" class="link" href="#" rel="noreferrer">Open enrollment on this iPhone</a>
+<p id="status" class="status" role="status">Preparing enrollment…</p>
+<p id="detail" class="small">Keep this page open while the iPhone completes registration.</p>
+<button id="again" class="secondary">Start another enrollment</button>
 </section>
 <ol class="steps">
-<li>Use Safari on the iPhone to open the enrollment link.</li>
-<li>Tap Allow to download the temporary profile, then open Settings to install it.</li>
-<li>Keep this page open until registration and the iPhone build have been queued.</li>
+<li>Open the private invitation link on a computer to display a QR code, or open it in Safari on the iPhone.</li>
+<li>On the iPhone, follow Apple's prompts to download and install the temporary enrollment profile.</li>
+<li>Keep the page open until device registration and the iPhone build have been queued.</li>
 </ol>
-<p class="small">For security, this page never asks you to type your UDID. The server must validate Apple's signed device response before registering the device.</p>
+<p class="small">The server verifies Apple's signed device response before trusting a device identifier. The invitation link is a bearer link: anyone who has it can use one of its remaining registrations.</p>
 </main>
 <script>
 (() => {
- const startButton=document.getElementById('start'), again=document.getElementById('again');
- const intro=document.getElementById('intro'), active=document.getElementById('active');
- const qr=document.getElementById('qr'), status=document.getElementById('status'), detail=document.getElementById('detail'), openPhone=document.getElementById('openPhone'), adminSecret=document.getElementById('adminSecret');
- let pollHandle=null, token=null;
- function reset(){if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;qr.replaceChildren();active.classList.add('hidden');intro.classList.remove('hidden');startButton.disabled=false;startButton.textContent='Create secure enrollment QR';}
+ const admin=document.getElementById('admin'), recipient=document.getElementById('recipient'), active=document.getElementById('active');
+ const createButton=document.getElementById('createInvite'), useButton=document.getElementById('useInvite'), copyButton=document.getElementById('copyInvite');
+ const adminSecret=document.getElementById('adminSecret'), inviteResult=document.getElementById('inviteResult'), inviteUrlBox=document.getElementById('inviteUrl'), adminError=document.getElementById('adminError');
+ const qr=document.getElementById('qr'), status=document.getElementById('status'), detail=document.getElementById('detail'), openPhone=document.getElementById('openPhone'), again=document.getElementById('again');
+ const inviteFromUrl=new URLSearchParams(location.search).get('invite')||'';
+ let inviteToken=inviteFromUrl, currentInviteUrl='', pollHandle=null, token=null;
+ function makeQr(url){qr.replaceChildren();if(window.QRCode){new QRCode(qr,{text:url,width:248,height:248,colorDark:'#17212b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}else{const a=document.createElement('a');a.href=url;a.textContent='Open enrollment link on your iPhone';a.className='link';qr.append(a);}}
+ function reset(){if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;qr.replaceChildren();active.classList.add('hidden');if(inviteToken){recipient.classList.remove('hidden');begin();}else{admin.classList.remove('hidden');}}
  async function poll(){
    if(!token)return;
    try{
      const response=await fetch('/api/ios-enrollment/status?token='+encodeURIComponent(token),{cache:'no-store'});
      const data=await response.json();
      if(!response.ok)throw new Error(data.error||'Could not read enrollment status.');
-     if(data.status==='complete'){status.textContent='iPhone registered — build started';detail.textContent='GitHub Actions is building a QR-installable IPA with this device included in its provisioning profile. Check the repository Actions run for completion.';return;}
+     if(data.status==='complete'){status.textContent='iPhone registered — build started';detail.textContent='GitHub Actions has been asked to build a QR-installable IPA. Check the repository Actions run for completion.';return;}
      if(data.status==='error'){status.textContent='Enrollment needs attention';detail.textContent=data.error||'Try again after the server configuration is corrected.';return;}
-     if(data.status==='registering'){status.textContent='Registering iPhone with Apple…';}
-     else if(data.status==='building'){status.textContent='Registration complete — starting iPhone build…';}
-     else {status.textContent='Waiting for iPhone…';}
+     if(data.status==='registering')status.textContent='Registering iPhone with Apple…';
+     else if(data.status==='building')status.textContent='Registration complete — starting iPhone build…';
+     else status.textContent='Waiting for iPhone…';
    }catch(e){status.textContent='Checking enrollment status…';}
    pollHandle=setTimeout(poll,2500);
  }
  async function begin(){
-   startButton.disabled=true;startButton.textContent='Creating secure link…';
+   admin.classList.add('hidden');recipient.classList.remove('hidden');active.classList.add('hidden');
    try{
-     const secret=adminSecret.value.trim();if(secret.length<32)throw new Error('Enter the administrator secret configured in Vercel.');
-     const response=await fetch('/api/ios-enrollment/start',{method:'POST',headers:{'Content-Type':'application/json','x-enrollment-admin':secret},body:'{}'});
+     const response=await fetch('/api/ios-enrollment/start?invite='+encodeURIComponent(inviteToken),{method:'POST',cache:'no-store'});
      const data=await response.json();
      if(!response.ok)throw new Error(data.error||'Could not start enrollment.');
-     token=data.token;intro.classList.add('hidden');active.classList.remove('hidden');
-     openPhone.href=data.profileUrl;
-     qr.replaceChildren();
-     if(window.QRCode){new QRCode(qr,{text:data.profileUrl,width:248,height:248,colorDark:'#17212b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}
-     else {const fallback=document.createElement('a');fallback.href=data.profileUrl;fallback.textContent='Open enrollment link on your iPhone';fallback.className='link';qr.append(fallback);}
+     token=data.token;recipient.classList.add('hidden');active.classList.remove('hidden');
+     openPhone.href=data.profileUrl;makeQr(data.profileUrl);
      status.textContent='Waiting for iPhone…';detail.textContent='Scan the QR with your iPhone camera and install the temporary profile.';
      poll();
-   }catch(e){alert(e.message||'Could not start enrollment.');startButton.disabled=false;startButton.textContent='Try again';}
+   }catch(e){recipient.classList.remove('hidden');recipient.innerHTML='<p role="alert">'+String(e.message||'Could not start enrollment.').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</p><p>Ask the person who shared the link for a new invitation if it has expired or reached its device limit.</p>';}
  }
- startButton.addEventListener('click',begin);again.addEventListener('click',reset);
+ createButton.addEventListener('click',async()=>{
+   createButton.disabled=true;createButton.textContent='Creating link…';adminError.textContent='';
+   try{
+     const secret=adminSecret.value.trim();if(secret.length<32)throw new Error('Enter the administrator secret configured in Vercel.');
+     const response=await fetch('/api/ios-enrollment/invite',{method:'POST',headers:{'Content-Type':'application/json','x-enrollment-admin':secret},body:'{}',cache:'no-store'});
+     const data=await response.json();if(!response.ok)throw new Error(data.error||'Could not create an invitation.');
+     currentInviteUrl=data.inviteUrl;inviteToken=new URL(data.inviteUrl).searchParams.get('invite');
+     inviteUrlBox.textContent=currentInviteUrl;inviteResult.classList.remove('hidden');adminSecret.value='';
+   }catch(e){adminError.textContent=e.message||'Could not create an invitation.';}
+   finally{createButton.disabled=false;createButton.textContent='Create private enrollment link';}
+ });
+ copyButton.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(currentInviteUrl);copyButton.textContent='Copied';}catch{inviteUrlBox.textContent=currentInviteUrl;adminError.textContent='Copy was blocked by the browser. Select and copy the link above.';}});
+ useButton.addEventListener('click',()=>{if(!inviteToken)return;history.replaceState(null,'',location.pathname);begin();});
+ again.addEventListener('click',()=>{if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;active.classList.add('hidden');begin();});
+ if(inviteToken){admin.classList.add('hidden');recipient.classList.remove('hidden');begin();}
 })();
 </script>
 </body>

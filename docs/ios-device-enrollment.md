@@ -1,6 +1,6 @@
 # Schoology iOS Ad Hoc device enrollment
 
-This document tracks the Expo-style enrollment flow for Schoology Mobile Web. Server-side App Store Connect device/profile creation and GitHub Actions dispatch helpers now exist in `lib/ios-enrollment-server.js`. The public enrollment endpoints, Apple CMS signature/trust-chain verification, enrollment page/QR UI, and end-to-end installation test are still pending; the feature is not yet usable or production-ready.
+This document tracks the Expo-style enrollment flow for Schoology Mobile Web. The feature branch now includes `/ios-enroll.html`, enrollment session/status endpoints, an Apple Profile Service response, and a callback that verifies CMS signatures against a pinned CA before validating the session challenge. Server-side App Store Connect device/profile creation and GitHub Actions dispatch helpers live in `lib/ios-enrollment-server.js`. The flow is still untested on a real iPhone and is not production-ready until the Vercel variables and current Apple device CA are configured and the exact provisioning certificate is confirmed.
 
 ## Flow
 
@@ -31,12 +31,16 @@ This document tracks the Expo-style enrollment flow for Schoology Mobile Web. Se
 - `GITHUB_ACTIONS_TOKEN`: a narrowly scoped token that can dispatch the iOS packaging workflow in `tling0001/schoology-for-desktop-port`.
 - `GITHUB_ACTIONS_REPOSITORY`: set to `tling0001/schoology-for-desktop-port`.
 - `GITHUB_ACTIONS_WORKFLOW`: set to `build-windows.yml`.
+- `IOS_ENROLLMENT_BASE_URL`: exact HTTPS production origin for the Vercel deployment.
+- `IOS_ENROLLMENT_ADMIN_SECRET`: random secret of at least 32 characters; required in the enrollment page before a QR can be created.
+- `APPLE_DEVICE_CA_PEM`: pinned Apple Profile Service device CA certificate in PEM format. Confirm the correct current certificate using Apple's current documentation before enabling enrollment.
+- `IOS_DISTRIBUTION_CERTIFICATE_ID`: App Store Connect certificate resource ID matching the iOS P12 imported by GitHub Actions.
 
-The Apple profile-service protocol requires validation of Apple's signed device response. The endpoint must fail closed until trusted certificate-chain verification is implemented and tested. Do not replace this check with a client-submitted UDID field.
+The Apple profile-service protocol requires validation of Apple's signed device response. The callback uses OpenSSL CMS verification with `APPLE_DEVICE_CA_PEM` as a pinned trust anchor and fails closed if it is missing or validation fails. The callback must be tested with a current real iPhone and the configured CA before production use. Do not replace this check with a client-submitted UDID field.
 
 ## Provisioning profile and build requirements
 
-The existing iOS workflow downloads an Ad Hoc profile for `com.schoologytauri.app`. Downloading an old profile does not automatically add a newly registered device. The enrollment helper creates a fresh Ad Hoc profile through App Store Connect containing the verified device plus all enabled iOS devices returned by the API, then returns the profile UUID. The desktop workflow branch `feature/ios-profile-uuid-build` adds an optional `ios_adhoc_profile_uuid` input and selects that exact downloaded profile. It also stages the validated IPA for the QR manifest step. These workflow changes are in draft PR #7 and are not merged. The final IPA must still be inspected to confirm its embedded profile contains the newly enrolled UDID and the expected bundle identifier.
+The existing iOS workflow downloads an Ad Hoc profile for `com.schoologytauri.app`. Downloading an old profile does not automatically add a newly registered device. The enrollment helper creates a fresh Ad Hoc profile through App Store Connect containing the verified device plus enabled iOS devices returned by the API, using the explicitly configured `IOS_DISTRIBUTION_CERTIFICATE_ID` that must match the P12 imported by GitHub Actions, then returns the profile UUID. The desktop workflow branch `feature/ios-profile-uuid-build` adds an optional `ios_adhoc_profile_uuid` input and selects that exact downloaded profile. It also stages the validated IPA for the QR manifest step. These workflow changes are in draft PR #7 and are not merged. The final IPA must still be inspected to confirm its embedded profile contains the newly enrolled UDID and the expected bundle identifier.
 
 ## Testing checklist
 

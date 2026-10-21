@@ -65,8 +65,9 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
  document.querySelectorAll('.device-only').forEach(el=>el.classList.toggle('hidden',!isAppleMobile));
  qr.classList.toggle('hidden',isAppleMobile);
  let buildRequestedAt=0, manifestCheckedAt=0;
- const inviteFromUrl=new URLSearchParams(location.search).get('invite')||'';
- let inviteToken=inviteFromUrl, currentInviteUrl='', pollHandle=null, token=null;
+ const params=new URLSearchParams(location.search);
+ const inviteFromUrl=params.get('invite')||'', sessionFromUrl=params.get('session')||'';
+ let inviteToken=inviteFromUrl, currentInviteUrl='', pollHandle=null, token=sessionFromUrl||null;
  function makeQr(url){qr.replaceChildren();if(window.QRCode){new QRCode(qr,{text:url,width:248,height:248,colorDark:'#17212b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}else{const a=document.createElement('a');a.href=url;a.textContent='Open enrollment link on your iPhone';a.className='link';qr.append(a);}}
  function reset(){if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;qr.replaceChildren();active.classList.add('hidden');if(inviteToken){recipient.classList.remove('hidden');begin();}else{admin.classList.remove('hidden');}}
  async function findInstallManifest(){
@@ -103,7 +104,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
        status.textContent='Enrollment needs attention';detail.textContent=data.error||'Try again after the server configuration is corrected.';return;
      }else if(data.status==='registering')status.textContent='Registering iPhone with Apple…';
      else if(data.status==='building')status.textContent='Registration complete — starting iPhone build…';
-     else status.textContent='Waiting for iPhone…';
+     else status.textContent=isAppleMobile?'Ready to identify this iPhone':'Waiting for iPhone…';
    }catch(e){status.textContent='Checking enrollment status…';}
    pollHandle=setTimeout(poll,2500);
  }
@@ -140,7 +141,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
      token=data.token;recipient.classList.add('hidden');active.classList.remove('hidden');
      installProfile.href=data.profileUrl;
      if(isAppleMobile){qr.replaceChildren();status.textContent='Ready to identify this iPhone';detail.textContent='Tap Install enrollment profile, then return to this page after installing it in Settings.';}
-     else{makeQr(data.profileUrl);status.textContent='Scan to continue on your iPhone or iPad';detail.textContent='Scan this QR code with the iPhone or iPad camera to open the enrollment profile.';}
+     else{makeQr(location.origin+location.pathname+'?session='+encodeURIComponent(token));status.textContent='Scan to continue on your iPhone or iPad';detail.textContent='Scan this QR code to open the enrollment page on your iPhone or iPad.';}
      poll();
    }catch(e){recipient.classList.remove('hidden');recipient.innerHTML='<p role="alert">'+String(e.message||'Could not start enrollment.').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</p><p>Ask the person who shared the link for a new invitation if it has expired or reached its device limit.</p>';}
  }
@@ -158,7 +159,8 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
  copyButton.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(currentInviteUrl);copyButton.textContent='Copied';}catch{inviteUrlBox.textContent=currentInviteUrl;adminError.textContent='Copy was blocked by the browser. Select and copy the link above.';}});
  useButton.addEventListener('click',()=>{if(!inviteToken)return;history.replaceState(null,'',location.pathname);begin();});
  again.addEventListener('click',()=>{if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;buildRequestedAt=0;manifestCheckedAt=0;installApp.classList.add('hidden');active.classList.add('hidden');begin();});
- if(inviteToken){admin.classList.add('hidden');recipient.classList.remove('hidden');checkSavedDevice().then(found=>{if(!found)begin();});}
+ if(sessionFromUrl){admin.classList.add('hidden');recipient.classList.add('hidden');active.classList.remove('hidden');installProfile.href=location.origin+'/api/ios-enrollment/profile?token='+encodeURIComponent(sessionFromUrl);if(!isAppleMobile)makeQr(location.href);status.textContent=isAppleMobile?'Ready to identify this iPhone':'Waiting for iPhone…';detail.textContent=isAppleMobile?'Tap Install enrollment profile, then return here after installing it in Settings.':'Scan this QR code with your iPhone or iPad to continue on that device.';poll();}
+ else if(inviteToken){admin.classList.add('hidden');recipient.classList.remove('hidden');checkSavedDevice().then(found=>{if(!found)begin();});}
 })();
 </script>
 </body>

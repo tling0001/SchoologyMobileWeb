@@ -16,6 +16,10 @@
     {
       "source": "/api/auth/logout",
       "destination": "/api/auth/session?mode=logout"
+    },
+    {
+      "source": "/api/schoology/assignment-comments",
+      "destination": "/api/schoology?action=assignment-comments"
     }
   ]
 }

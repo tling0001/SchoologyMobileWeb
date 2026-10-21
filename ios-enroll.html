@@ -41,16 +41,17 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
 <p>Your private invitation is valid. Preparing a secure, one-time enrollment session…</p>
 </section>
 <section id="active" class="hidden">
-<div id="qr" aria-label="iPhone enrollment QR code"></div>
-<a id="openPhone" class="link" href="#" rel="noreferrer">Open enrollment on this iPhone</a>
+<div id="qr" class="hidden" aria-label="Enrollment link QR code"></div>
+<a id="installProfile" class="link device-only hidden" href="#" rel="noreferrer">Install enrollment profile</a>
+<a id="installApp" class="link device-only hidden" href="#" rel="noreferrer">Install Schoology</a>
 <p id="status" class="status" role="status">Preparing enrollment…</p>
 <p id="detail" class="small">Keep this page open while the iPhone completes registration.</p>
 <button id="again" class="secondary">Start another enrollment</button>
 </section>
 <ol class="steps">
-<li>Open the private invitation link on a computer to display a QR code, or open it in Safari on the iPhone.</li>
-<li>On the iPhone, follow Apple's prompts to download and install the temporary enrollment profile.</li>
-<li>Keep the page open until device registration and the iPhone build have been queued.</li>
+<li>On a computer or other non-iPhone/iPad device, scan the QR code with your iPhone or iPad.</li>
+<li>On an iPhone or iPad, use Install enrollment profile if this device still needs registration.</li>
+<li>After Apple registers the device and the Ad Hoc build finishes, use Install Schoology on the same iPhone or iPad.</li>
 </ol>
 <p class="small">The server verifies Apple's signed device response before trusting a device identifier. The invitation link is a bearer link: anyone who has it can use one of its remaining registrations.</p>
 </main>
@@ -59,24 +60,76 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
  const admin=document.getElementById('admin'), recipient=document.getElementById('recipient'), active=document.getElementById('active');
  const createButton=document.getElementById('createInvite'), useButton=document.getElementById('useInvite'), copyButton=document.getElementById('copyInvite');
  const adminSecret=document.getElementById('adminSecret'), inviteResult=document.getElementById('inviteResult'), inviteUrlBox=document.getElementById('inviteUrl'), adminError=document.getElementById('adminError');
- const qr=document.getElementById('qr'), status=document.getElementById('status'), detail=document.getElementById('detail'), openPhone=document.getElementById('openPhone'), again=document.getElementById('again');
+ const qr=document.getElementById('qr'), status=document.getElementById('status'), detail=document.getElementById('detail'), installProfile=document.getElementById('installProfile'), installApp=document.getElementById('installApp'), again=document.getElementById('again');
+ const isAppleMobile=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ document.querySelectorAll('.device-only').forEach(el=>el.classList.toggle('hidden',!isAppleMobile));
+ qr.classList.toggle('hidden',isAppleMobile);
+ let buildRequestedAt=0, manifestCheckedAt=0;
  const inviteFromUrl=new URLSearchParams(location.search).get('invite')||'';
  let inviteToken=inviteFromUrl, currentInviteUrl='', pollHandle=null, token=null;
  function makeQr(url){qr.replaceChildren();if(window.QRCode){new QRCode(qr,{text:url,width:248,height:248,colorDark:'#17212b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}else{const a=document.createElement('a');a.href=url;a.textContent='Open enrollment link on your iPhone';a.className='link';qr.append(a);}}
  function reset(){if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;qr.replaceChildren();active.classList.add('hidden');if(inviteToken){recipient.classList.remove('hidden');begin();}else{admin.classList.remove('hidden');}}
+ async function findInstallManifest(){
+   const now=Date.now();
+   if(now-manifestCheckedAt<10000)return false;
+   manifestCheckedAt=now;
+   try{
+     const response=await fetch('https://api.github.com/repos/tling0001/schoology-for-desktop-port/releases/latest',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
+     if(!response.ok)return false;
+     const release=await response.json();
+     const asset=(release.assets||[]).find(a=>/^Schoology-.+-iOS-AdHoc\.plist$/.test(a.name));
+     const updated=Date.parse(asset?.updated_at||'');
+     if(!asset||!asset.browser_download_url||!Number.isFinite(updated)||updated<buildRequestedAt-30000)return false;
+     installApp.href='itms-services://?action=download-manifest&url='+encodeURIComponent(asset.browser_download_url);
+     installApp.classList.remove('hidden');
+     status.textContent='Schoology is ready to install';
+     detail.textContent='The Ad Hoc build is published. Tap Install Schoology on this iPhone or iPad.';
+     return true;
+   }catch{return false;}
+ }
  async function poll(){
    if(!token)return;
    try{
      const response=await fetch('/api/ios-enrollment/status?token='+encodeURIComponent(token),{cache:'no-store'});
      const data=await response.json();
      if(!response.ok)throw new Error(data.error||'Could not read enrollment status.');
-     if(data.status==='complete'){status.textContent='iPhone registered — build started';detail.textContent='GitHub Actions has been asked to build a QR-installable IPA. Check the repository Actions run for completion.';return;}
-     if(data.status==='error'){status.textContent='Enrollment needs attention';detail.textContent=data.error||'Try again after the server configuration is corrected.';return;}
-     if(data.status==='registering')status.textContent='Registering iPhone with Apple…';
+     if(data.status==='complete'){
+       if(!buildRequestedAt)buildRequestedAt=Number(data.buildRequestedAt)||Date.now();
+       if(data.deviceToken){try{localStorage.setItem('schoologyIosDeviceToken',data.deviceToken);}catch{}}
+       status.textContent='iPhone registered — waiting for app build…';
+       detail.textContent='Keep this page open. Install Schoology will appear when the new Ad Hoc build is published.';
+       if(await findInstallManifest())return;
+     }else if(data.status==='error'){
+       status.textContent='Enrollment needs attention';detail.textContent=data.error||'Try again after the server configuration is corrected.';return;
+     }else if(data.status==='registering')status.textContent='Registering iPhone with Apple…';
      else if(data.status==='building')status.textContent='Registration complete — starting iPhone build…';
      else status.textContent='Waiting for iPhone…';
    }catch(e){status.textContent='Checking enrollment status…';}
    pollHandle=setTimeout(poll,2500);
+ }
+ async function waitForExistingBuild(){
+   if(await findInstallManifest())return;
+   status.textContent='This iPhone is enrolled — checking for Schoology…';
+   detail.textContent='The device is already included in an active Ad Hoc profile. Waiting for the latest compatible app package.';
+   pollHandle=setTimeout(waitForExistingBuild,10000);
+ }
+ async function checkSavedDevice(){
+   if(!isAppleMobile)return false;
+   let saved='';
+   try{saved=localStorage.getItem('schoologyIosDeviceToken')||'';}catch{}
+   if(!saved)return false;
+   try{
+     const response=await fetch('/api/ios-enrollment/check?deviceToken='+encodeURIComponent(saved),{cache:'no-store'});
+     const data=await response.json();
+     if(!response.ok||!data.enrolled)return false;
+     buildRequestedAt=Number(data.buildRequestedAt)||0;
+     admin.classList.add('hidden');recipient.classList.add('hidden');active.classList.remove('hidden');
+     qr.replaceChildren();installProfile.classList.add('hidden');installApp.classList.add('hidden');
+     status.textContent='This iPhone is already enrolled';
+     detail.textContent='Checking whether Schoology is ready to install…';
+     waitForExistingBuild();
+     return true;
+   }catch{return false;}
  }
  async function begin(){
    admin.classList.add('hidden');recipient.classList.remove('hidden');active.classList.add('hidden');
@@ -85,8 +138,9 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
      const data=await response.json();
      if(!response.ok)throw new Error(data.error||'Could not start enrollment.');
      token=data.token;recipient.classList.add('hidden');active.classList.remove('hidden');
-     openPhone.href=data.profileUrl;makeQr(data.profileUrl);
-     status.textContent='Waiting for iPhone…';detail.textContent='Scan the QR with your iPhone camera and install the temporary profile.';
+     installProfile.href=data.profileUrl;
+     if(isAppleMobile){qr.replaceChildren();status.textContent='Ready to identify this iPhone';detail.textContent='Tap Install enrollment profile, then return to this page after installing it in Settings.';}
+     else{makeQr(data.profileUrl);status.textContent='Scan to continue on your iPhone or iPad';detail.textContent='Scan this QR code with the iPhone or iPad camera to open the enrollment profile.';}
      poll();
    }catch(e){recipient.classList.remove('hidden');recipient.innerHTML='<p role="alert">'+String(e.message||'Could not start enrollment.').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</p><p>Ask the person who shared the link for a new invitation if it has expired or reached its device limit.</p>';}
  }
@@ -103,8 +157,8 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
  });
  copyButton.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(currentInviteUrl);copyButton.textContent='Copied';}catch{inviteUrlBox.textContent=currentInviteUrl;adminError.textContent='Copy was blocked by the browser. Select and copy the link above.';}});
  useButton.addEventListener('click',()=>{if(!inviteToken)return;history.replaceState(null,'',location.pathname);begin();});
- again.addEventListener('click',()=>{if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;active.classList.add('hidden');begin();});
- if(inviteToken){admin.classList.add('hidden');recipient.classList.remove('hidden');begin();}
+ again.addEventListener('click',()=>{if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;buildRequestedAt=0;manifestCheckedAt=0;installApp.classList.add('hidden');active.classList.add('hidden');begin();});
+ if(inviteToken){admin.classList.add('hidden');recipient.classList.remove('hidden');checkSavedDevice().then(found=>{if(!found)begin();});}
 })();
 </script>
 </body>

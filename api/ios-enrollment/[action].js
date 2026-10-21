@@ -39,8 +39,20 @@ async function status(req, res) {
   if (req.method !== 'GET') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'GET' });
   try {
     const { session } = await E.getSession(String(req.query?.token || ''));
-    return S.send(res, 200, { status: session.status, error: session.status === 'error' ? session.error : undefined }, { 'Cache-Control': 'no-store, private' });
+    return S.send(res, 200, { status: session.status, error: session.status === 'error' ? session.error : undefined, deviceToken: session.status === 'complete' ? session.deviceToken : undefined, buildRequestedAt: session.status === 'complete' ? session.buildRequestedAt : undefined }, { 'Cache-Control': 'no-store, private' });
   } catch (e) {
+    return S.send(res, e.statusCode || 503, { error: S.safeMessage(e) }, { 'Cache-Control': 'no-store, private' });
+  }
+}
+
+async function check(req, res) {
+  if (req.method !== 'GET') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'GET' });
+  try {
+    await S.rateLimit(req, 'ios-enrollment-check', 30, 300);
+    const result = await E.getKnownDevice(String(req.query?.deviceToken || ''));
+    return S.send(res, 200, result, { 'Cache-Control': 'no-store, private' });
+  } catch (e) {
+    if (e.statusCode === 404) return S.send(res, 200, { enrolled: false }, { 'Cache-Control': 'no-store, private' });
     return S.send(res, e.statusCode || 503, { error: S.safeMessage(e) }, { 'Cache-Control': 'no-store, private' });
   }
 }
@@ -73,6 +85,7 @@ module.exports = async function handler(req, res) {
   if (action === 'invite') return invite(req, res);
   if (action === 'start') return start(req, res);
   if (action === 'status') return status(req, res);
+  if (action === 'check') return check(req, res);
   if (action === 'profile') return profile(req, res);
   return S.send(res, 404, { error: 'Unknown iOS enrollment endpoint.' });
 };

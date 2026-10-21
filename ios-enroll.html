@@ -95,7 +95,8 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
      const data=await response.json();
      if(!response.ok)throw new Error(data.error||'Could not read enrollment status.');
      if(data.status==='complete'){
-       if(!buildRequestedAt)buildRequestedAt=Date.now();
+       if(!buildRequestedAt)buildRequestedAt=Number(data.buildRequestedAt)||Date.now();
+       if(data.deviceToken){try{localStorage.setItem('schoologyIosDeviceToken',data.deviceToken);}catch{}}
        status.textContent='iPhone registered — waiting for app build…';
        detail.textContent='Keep this page open. Install Schoology will appear when the new Ad Hoc build is published.';
        if(await findInstallManifest())return;
@@ -106,6 +107,30 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
      else status.textContent='Waiting for iPhone…';
    }catch(e){status.textContent='Checking enrollment status…';}
    pollHandle=setTimeout(poll,2500);
+ }
+ async function waitForExistingBuild(){
+   if(await findInstallManifest())return;
+   status.textContent='This iPhone is enrolled — checking for Schoology…';
+   detail.textContent='The device is already included in an active Ad Hoc profile. Waiting for the latest compatible app package.';
+   pollHandle=setTimeout(waitForExistingBuild,10000);
+ }
+ async function checkSavedDevice(){
+   if(!isAppleMobile)return false;
+   let saved='';
+   try{saved=localStorage.getItem('schoologyIosDeviceToken')||'';}catch{}
+   if(!saved)return false;
+   try{
+     const response=await fetch('/api/ios-enrollment/check?deviceToken='+encodeURIComponent(saved),{cache:'no-store'});
+     const data=await response.json();
+     if(!response.ok||!data.enrolled)return false;
+     buildRequestedAt=Number(data.buildRequestedAt)||0;
+     admin.classList.add('hidden');recipient.classList.add('hidden');active.classList.remove('hidden');
+     qr.replaceChildren();installProfile.classList.add('hidden');installApp.classList.add('hidden');
+     status.textContent='This iPhone is already enrolled';
+     detail.textContent='Checking whether Schoology is ready to install…';
+     waitForExistingBuild();
+     return true;
+   }catch{return false;}
  }
  async function begin(){
    admin.classList.add('hidden');recipient.classList.remove('hidden');active.classList.add('hidden');
@@ -134,7 +159,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
  copyButton.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(currentInviteUrl);copyButton.textContent='Copied';}catch{inviteUrlBox.textContent=currentInviteUrl;adminError.textContent='Copy was blocked by the browser. Select and copy the link above.';}});
  useButton.addEventListener('click',()=>{if(!inviteToken)return;history.replaceState(null,'',location.pathname);begin();});
  again.addEventListener('click',()=>{if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;buildRequestedAt=0;manifestCheckedAt=0;installApp.classList.add('hidden');active.classList.add('hidden');begin();});
- if(inviteToken){admin.classList.add('hidden');recipient.classList.remove('hidden');begin();}
+ if(inviteToken){admin.classList.add('hidden');recipient.classList.remove('hidden');checkSavedDevice().then(found=>{if(!found)begin();});}
 })();
 </script>
 </body>

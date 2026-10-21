@@ -41,8 +41,8 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
 <p>Your private invitation is valid. Preparing a secure, one-time enrollment session…</p>
 </section>
 <section id="active" class="hidden">
-<div id="qr" aria-label="Enrollment link QR code"></div>
-<a id="installProfile" class="link device-only" href="#" rel="noreferrer">Install enrollment profile</a>
+<div id="qr" class="hidden" aria-label="Enrollment link QR code"></div>
+<a id="installProfile" class="link device-only hidden" href="#" rel="noreferrer">Install enrollment profile</a>
 <a id="installApp" class="link device-only hidden" href="#" rel="noreferrer">Install Schoology</a>
 <p id="status" class="status" role="status">Preparing enrollment…</p>
 <p id="detail" class="small">Keep this page open while the iPhone completes registration.</p>
@@ -77,10 +77,9 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
      const response=await fetch('https://api.github.com/repos/tling0001/schoology-for-desktop-port/releases/latest',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
      if(!response.ok)return false;
      const release=await response.json();
-     const updated=Date.parse(release.updated_at||release.published_at||'');
-     if(!Number.isFinite(updated)||updated<buildRequestedAt-30000)return false;
      const asset=(release.assets||[]).find(a=>/^Schoology-.+-iOS-AdHoc\.plist$/.test(a.name));
-     if(!asset||!asset.browser_download_url)return false;
+     const updated=Date.parse(asset?.updated_at||'');
+     if(!asset||!asset.browser_download_url||!Number.isFinite(updated)||updated<buildRequestedAt-30000)return false;
      installApp.href='itms-services://?action=download-manifest&url='+encodeURIComponent(asset.browser_download_url);
      installApp.classList.remove('hidden');
      status.textContent='Schoology is ready to install';

@@ -6,16 +6,29 @@ function sendProfile(res, xml) {
   res.statusCode = 200;
   res.setHeader('Content-Type', 'application/x-apple-aspen-config');
   res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Referrer-Policy', 'no-referrer');
   res.end(xml);
+}
+
+async function invite(req, res) {
+  if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
+  try {
+    S.checkOrigin(req);
+    E.requireAdmin(req);
+    await S.rateLimit(req, 'ios-enrollment-invite', 3, 300);
+    const result = await E.createInvite(req);
+    return S.send(res, 201, result, { 'Cache-Control': 'no-store' });
+  } catch (e) {
+    return S.send(res, e.statusCode || 503, { error: S.safeMessage(e) }, { 'Cache-Control': 'no-store' });
+  }
 }
 
 async function start(req, res) {
   if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
   try {
     S.checkOrigin(req);
-    E.requireAdmin(req);
     await S.rateLimit(req, 'ios-enrollment-start', 5, 300);
-    const session = await E.createSession(req);
+    const session = await E.createSession(req, String(req.query?.invite || ''));
     return S.send(res, 201, { profileUrl: session.profileUrl, token: session.token, expiresInSeconds: session.expiresInSeconds }, { 'Cache-Control': 'no-store' });
   } catch (e) {
     return S.send(res, e.statusCode || 503, { error: S.safeMessage(e) }, { 'Cache-Control': 'no-store' });
@@ -57,6 +70,7 @@ async function profile(req, res) {
 
 module.exports = async function handler(req, res) {
   const action = String(req.query?.action || '');
+  if (action === 'invite') return invite(req, res);
   if (action === 'start') return start(req, res);
   if (action === 'status') return status(req, res);
   if (action === 'profile') return profile(req, res);

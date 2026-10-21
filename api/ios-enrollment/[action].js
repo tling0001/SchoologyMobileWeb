@@ -55,7 +55,7 @@ async function profile(req, res) {
     }
     if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'GET, POST' });
     const contentType = String(req.headers['content-type'] || '').toLowerCase();
-    if (!contentType.includes('application/x-apple-aspen-deviceinfo') && !contentType.includes('application/pkcs7-mime') && !contentType.includes('application/octet-stream')) {
+    if (!contentType.includes('application/x-apple-aspen-deviceinfo') && !contentType.includes('application/pkcs7-signature') && !contentType.includes('application/pkcs7-mime') && !contentType.includes('application/octet-stream')) {
       throw E.error(415, 'Unexpected Apple device-response content type.');
     }
     const body = await E.readRaw(req);

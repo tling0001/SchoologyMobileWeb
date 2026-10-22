@@ -161,6 +161,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
  again.addEventListener('click',()=>{if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;buildRequestedAt=0;manifestCheckedAt=0;installApp.classList.add('hidden');active.classList.add('hidden');begin();});
  if(sessionFromUrl){admin.classList.add('hidden');recipient.classList.add('hidden');active.classList.remove('hidden');installProfile.href=location.origin+'/api/ios-enrollment/profile?token='+encodeURIComponent(sessionFromUrl);if(!isAppleMobile)makeQr(location.href);status.textContent=isAppleMobile?'Ready to identify this iPhone':'Waiting for iPhone…';detail.textContent=isAppleMobile?'Tap Install enrollment profile, then return here after installing it in Settings.':'Scan this QR code with your iPhone or iPad to continue on that device.';poll();}
  else if(inviteToken){admin.classList.add('hidden');recipient.classList.remove('hidden');checkSavedDevice().then(found=>{if(!found)begin();});}
+ else {checkSavedDevice().then(found=>{if(!found)admin.classList.remove('hidden');});}
 })();
 </script>
 </body>

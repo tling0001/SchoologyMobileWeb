@@ -163,7 +163,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
      if(!response.ok)throw new Error(data.error||'Could not start enrollment.');
      token=data.token;recipient.classList.add('hidden');active.classList.remove('hidden');
      installProfile.href=data.profileUrl;
-     if(isAppleMobile){qr.replaceChildren();status.textContent='Ready to identify this iPhone';detail.textContent='Tap Install enrollment profile, then return to this page after installing it in Settings.';}
+     if(isAppleMobile){qr.replaceChildren();status.textContent='Ready to identify this iPhone';detail.textContent='This temporary profile registers this iPhone for Schoology installation; it does not enroll the phone in MDM. After installing the profile in Settings, return to Safari to watch registration and build progress. If the profile remains listed after registration, remove it in Settings > General > VPN & Device Management.';}
      else{makeQr(location.origin+location.pathname+'?session='+encodeURIComponent(token));status.textContent='Scan to continue on your iPhone or iPad';detail.textContent='Scan this QR code to open the enrollment page on your iPhone or iPad.';}
      poll();
    }catch(e){recipient.classList.remove('hidden');recipient.innerHTML='<p role="alert">'+String(e.message||'Could not start enrollment.').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</p><p>Ask the person who shared the link for a new invitation if it has expired or reached its device limit.</p>';}

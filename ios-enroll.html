@@ -100,6 +100,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
        status.textContent='iPhone registered — waiting for app build…';
        detail.textContent='Keep this page open. Install Schoology will appear when the new Ad Hoc build is published.';
        if(await findInstallManifest())return;
+       await checkActionProgress();
      }else if(data.status==='error'){
        status.textContent='Enrollment needs attention';detail.textContent=data.error||'Try again after the server configuration is corrected.';return;
      }else if(data.status==='registering')status.textContent='Registering iPhone with Apple…';
@@ -108,10 +109,32 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
    }catch(e){status.textContent='Checking enrollment status…';}
    pollHandle=setTimeout(poll,2500);
  }
+ async function checkActionProgress(){
+   if(!buildRequestedAt)return;
+   try{
+     const response=await fetch('https://api.github.com/repos/tling0001/schoology-for-desktop-port/actions/workflows/build-windows.yml/runs?branch=main&per_page=20',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
+     if(!response.ok)return;
+     const data=await response.json();
+     const runs=(data.workflow_runs||[]).filter(run=>run.event==='workflow_dispatch'&&run.created_at&&Date.parse(run.created_at)>=buildRequestedAt-5*60*1000);
+     runs.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at));
+     const run=runs[0];
+     if(!run)return;
+     const url=String(run.html_url||'');
+     const safeUrl=/^https:\/\/github\.com\/tling0001\/schoology-for-desktop-port\/actions\/runs\/[0-9]+$/.test(url)?url:'';
+     const state=run.status==='queued'?'queued':run.status==='in_progress'?'running':run.conclusion==='success'?'finished successfully':run.conclusion==='cancelled'?'cancelled':run.conclusion==='failure'?'failed':String(run.status||'in progress');
+     detail.textContent='GitHub Actions build is '+state+'. '+(safeUrl?'Open the build details from this page.':'The page will keep checking for the iOS installation package.');
+     if(safeUrl){
+       let link=document.getElementById('actionProgressLink');
+       if(!link){link=document.createElement('a');link.id='actionProgressLink';link.target='_blank';link.rel='noopener noreferrer';link.textContent=' View GitHub Actions progress';link.style.display='inline-block';link.style.marginTop='8px';link.style.color='#1769aa';detail.insertAdjacentElement('afterend',link);}
+       link.href=safeUrl;
+     }
+   }catch{}
+ }
  async function waitForExistingBuild(){
    if(await findInstallManifest())return;
    status.textContent='This iPhone is enrolled — checking for Schoology…';
-   detail.textContent='The device is already included in an active Ad Hoc profile. Waiting for the latest compatible app package.';
+   await checkActionProgress();
+   if(!document.getElementById('actionProgressLink'))detail.textContent='This iPhone is already registered. Checking GitHub Actions for build progress and waiting for the iOS installation package.';
    pollHandle=setTimeout(waitForExistingBuild,10000);
  }
  async function checkSavedDevice(){

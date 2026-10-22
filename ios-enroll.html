@@ -13,7 +13,8 @@ main{width:min(100%,520px);background:white;border:1px solid var(--line);border-
 .logo{width:48px;height:48px;border-radius:14px;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:24px;font-weight:700;margin-bottom:18px}
 h1{font-size:27px;line-height:1.2;margin:0 0 10px}p{margin:8px 0;color:var(--muted)}.notice{background:#eef6ff;border-radius:14px;padding:14px;margin:18px 0;color:#244967;font-size:14px}
 button,.link{border:0;border-radius:12px;padding:13px 16px;background:var(--blue);color:white;font-weight:650;font-size:15px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;width:100%;margin-top:12px}
-button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154b77}input{display:block;width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;margin-top:6px;font:inherit}#qr{display:grid;place-items:center;margin:20px auto;min-height:0}#qr canvas,#qr img{max-width:100%;height:auto!important}.status{font-weight:600;margin-top:16px;color:var(--ink)}.small{font-size:13px}.hidden{display:none}.steps{padding-left:20px;color:var(--muted)}.steps li{padding:4px 0}#inviteUrl{margin-top:12px;overflow-wrap:anywhere;background:#f4f7fa;border-radius:10px;padding:12px;font-size:14px}
+button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154b77}input{display:block;width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;margin-top:6px;font:inherit}
+#safariGate{border:1px solid #b9d7f1;background:#eef6ff;border-radius:16px;padding:18px;margin:18px 0}#safariGate h2{font-size:19px;margin:0 0 8px;color:#154b77}#safariGate p{color:#244967}#safariGateUrl{overflow-wrap:anywhere;font-size:13px;background:#fff;border-radius:8px;padding:10px;margin-top:10px}#qr{display:grid;place-items:center;margin:20px auto;min-height:0}#qr canvas,#qr img{max-width:100%;height:auto!important}.status{font-weight:600;margin-top:16px;color:var(--ink)}.small{font-size:13px}.hidden{display:none}.steps{padding-left:20px;color:var(--muted)}.steps li{padding:4px 0}#inviteUrl{margin-top:12px;overflow-wrap:anywhere;background:#f4f7fa;border-radius:10px;padding:12px;font-size:14px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 </head>
@@ -23,6 +24,14 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
 <h1>Register your iPhone</h1>
 <p>Prepare your iPhone for installing the QR-distributed Schoology app.</p>
 <div class="notice">This registers the device with Apple for Ad Hoc app distribution. It does not enroll the phone in mobile-device management or install a management profile.</div>
+<section id="safariGate" class="hidden" aria-live="polite">
+<h2>Open this page in Safari</h2>
+<p>iPhone and iPad registration must be completed from Safari. This browser cannot install the enrollment profile reliably.</p>
+<p><strong>Copy this page’s address, open Safari, and paste it into the address bar.</strong> Keep the same invitation or session link.</p>
+<div id="safariGateUrl"></div>
+<button id="copySafariUrl">Copy link for Safari</button>
+<p id="safariCopyStatus" class="small" role="status"></p>
+</section>
 <section id="admin">
 <p><strong>Create a private invitation link</strong></p>
 <p>Only you need the administrator secret. Share the generated link with the people whose iPhones you want to register; they will not be asked for your secret.</p>
@@ -57,11 +66,25 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
 </main>
 <script>
 (() => {
- const admin=document.getElementById('admin'), recipient=document.getElementById('recipient'), active=document.getElementById('active');
+ const admin=document.getElementById('admin'), recipient=document.getElementById('recipient'), active=document.getElementById('active'), safariGate=document.getElementById('safariGate');
  const createButton=document.getElementById('createInvite'), useButton=document.getElementById('useInvite'), copyButton=document.getElementById('copyInvite');
  const adminSecret=document.getElementById('adminSecret'), inviteResult=document.getElementById('inviteResult'), inviteUrlBox=document.getElementById('inviteUrl'), adminError=document.getElementById('adminError');
  const qr=document.getElementById('qr'), status=document.getElementById('status'), detail=document.getElementById('detail'), installProfile=document.getElementById('installProfile'), installApp=document.getElementById('installApp'), again=document.getElementById('again');
- const isAppleMobile=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ const ua=navigator.userAgent||'';
+ const isAppleMobile=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ const isSafari=/Safari\//.test(ua)&&!/CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\/|YaBrowser|FBAN|FBAV|Instagram|Line\/|MicroMessenger|Twitter|TikTok/i.test(ua);
+ const mustUseSafari=isAppleMobile&&!isSafari;
+ const safariGateUrl=document.getElementById('safariGateUrl'), copySafariUrl=document.getElementById('copySafariUrl'), safariCopyStatus=document.getElementById('safariCopyStatus');
+ safariGateUrl.textContent=location.href;
+ if(mustUseSafari){
+   safariGate.classList.remove('hidden');
+   admin.classList.add('hidden');recipient.classList.add('hidden');active.classList.add('hidden');
+   document.querySelector('.steps')?.classList.add('hidden');
+   copySafariUrl.addEventListener('click',async()=>{
+     try{await navigator.clipboard.writeText(location.href);safariCopyStatus.textContent='Link copied. Open Safari and paste it into the address bar.';}
+     catch{safariCopyStatus.textContent='Copy was blocked. Select and copy the address shown above, then paste it into Safari.';}
+   });
+ }
  document.querySelectorAll('.device-only').forEach(el=>el.classList.toggle('hidden',!isAppleMobile));
  qr.classList.toggle('hidden',isAppleMobile);
  let buildRequestedAt=0, manifestCheckedAt=0;
@@ -182,7 +205,8 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
  copyButton.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(currentInviteUrl);copyButton.textContent='Copied';}catch{inviteUrlBox.textContent=currentInviteUrl;adminError.textContent='Copy was blocked by the browser. Select and copy the link above.';}});
  useButton.addEventListener('click',()=>{if(!inviteToken)return;history.replaceState(null,'',location.pathname);begin();});
  again.addEventListener('click',()=>{if(pollHandle)clearTimeout(pollHandle);pollHandle=null;token=null;buildRequestedAt=0;manifestCheckedAt=0;installApp.classList.add('hidden');active.classList.add('hidden');begin();});
- if(sessionFromUrl){admin.classList.add('hidden');recipient.classList.add('hidden');active.classList.remove('hidden');installProfile.href=location.origin+'/api/ios-enrollment/profile?token='+encodeURIComponent(sessionFromUrl);if(!isAppleMobile)makeQr(location.href);status.textContent=isAppleMobile?'Ready to identify this iPhone':'Waiting for iPhone…';detail.textContent=isAppleMobile?'Tap Install enrollment profile, then return here after installing it in Settings.':'Scan this QR code with your iPhone or iPad to continue on that device.';poll();}
+ if(mustUseSafari){/* Enrollment is intentionally gated to Safari on iPhone and iPad. */}
+ else if(sessionFromUrl){admin.classList.add('hidden');recipient.classList.add('hidden');active.classList.remove('hidden');installProfile.href=location.origin+'/api/ios-enrollment/profile?token='+encodeURIComponent(sessionFromUrl);if(!isAppleMobile)makeQr(location.href);status.textContent=isAppleMobile?'Ready to identify this iPhone':'Waiting for iPhone…';detail.textContent=isAppleMobile?'Tap Install enrollment profile, then return here after installing it in Settings.':'Scan this QR code with your iPhone or iPad to continue on that device.';poll();}
  else if(inviteToken){admin.classList.add('hidden');recipient.classList.remove('hidden');checkSavedDevice().then(found=>{if(!found)begin();});}
  else {checkSavedDevice().then(found=>{if(!found)admin.classList.remove('hidden');});}
 })();

@@ -121,8 +121,9 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
        if(data.deviceToken){try{localStorage.setItem('schoologyIosDeviceToken',data.deviceToken);}catch{}}
        status.textContent='iPhone registered — waiting for app build…';
        detail.textContent='Keep this page open. Install Schoology will appear when the new Ad Hoc build is published.';
-       const buildFinished=await checkActionProgress();
-       if(buildFinished&&await findInstallManifest())return;
+       // Manifest discovery is independent of the unauthenticated Actions API; rate limits must not hide a published install link.
+       if(await findInstallManifest())return;
+       await checkActionProgress();
      }else if(data.status==='error'){
        status.textContent='Enrollment needs attention';detail.textContent=data.error||'Try again after the server configuration is corrected.';return;
      }else if(data.status==='registering')status.textContent='Registering iPhone with Apple…';

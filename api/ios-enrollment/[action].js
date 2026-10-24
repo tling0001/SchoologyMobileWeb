@@ -72,8 +72,15 @@ async function profile(req, res) {
     }
     const body = await E.readRaw(req);
     await E.processResponse(req, token, body);
-    const complete = '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>PayloadType</key><string>Configuration</string><key>PayloadVersion</key><integer>1</integer><key>PayloadIdentifier</key><string>com.schoology.mobileweb.ios-enrollment.complete</string><key>PayloadUUID</key><string>2F4A2E6B-8B64-4C0D-9F9A-3EED2AA004C1</string><key>PayloadDisplayName</key><string>Schoology iPhone Enrollment Complete</string><key>PayloadContent</key><array/></dict></plist>';
-    return sendProfile(res, complete);
+    // The Profile Service POST is only a device-identification callback. There is
+    // no configuration payload to install after the UDID has been verified and
+    // registered, so do not return an empty Configuration profile: iOS reports
+    // that response as "Cannot install empty profile". A 204 completes the
+    // callback without asking iOS to install a second, empty profile.
+    res.statusCode = 204;
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    return res.end();
   } catch (e) {
     if (e.statusCode) return S.send(res, e.statusCode, { error: S.safeMessage(e) }, { 'Cache-Control': 'no-store' });
     return S.send(res, 503, { error: 'iPhone enrollment could not be completed. Check server configuration and try again.' }, { 'Cache-Control': 'no-store' });

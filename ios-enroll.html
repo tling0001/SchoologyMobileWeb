@@ -23,7 +23,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
 <div class="logo" aria-hidden="true">S</div>
 <h1>Register your iPhone</h1>
 <p>Prepare your iPhone for installing the QR-distributed Schoology app.</p>
-<div class="notice">This registers the device with Apple for Ad Hoc app distribution. It does not enroll the phone in mobile-device management or install a management profile.</div>
+<div class="notice">This registers the device with Apple for Ad Hoc app distribution. It does not enroll the phone in mobile-device management or install a management profile. iOS does not provide a supported way for this one-time registration profile to uninstall itself; after the callback, return to Safari and remove it manually in Settings &gt; General &gt; VPN &amp; Device Management if it remains installed.</div>
 <section id="safariGate" class="hidden" aria-live="polite">
 <h2>Open this page in Safari</h2>
 <p>iPhone and iPad registration must be completed from Safari. This browser cannot install the enrollment profile reliably.</p>
@@ -55,6 +55,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
 <a id="installApp" class="link device-only hidden" href="#" rel="noreferrer">Install Schoology</a>
 <p id="status" class="status" role="status">Preparing enrollment…</p>
 <p id="detail" class="small">Keep this page open while the iPhone completes registration.</p>
+<p class="small">After registration, return to Safari. If the temporary registration profile is still listed, remove it manually in Settings &gt; General &gt; VPN &amp; Device Management; iOS does not allow this registration-only profile to uninstall itself.</p>
 <button id="again" class="secondary">Start another enrollment</button>
 </section>
 <ol class="steps">

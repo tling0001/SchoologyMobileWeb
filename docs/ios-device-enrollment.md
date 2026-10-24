@@ -1,3 +1,7 @@
+### Temporary registration profile cleanup
+
+The Profile Service callback only identifies the device; it is not an MDM channel and cannot issue a supported remove-profile command to iOS. The registration-only profile therefore cannot reliably uninstall itself. After returning to Safari, users should remove it manually in **Settings → General → VPN & Device Management** if it remains listed. See Apple's [Over-the-Air Profile Delivery documentation](https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/iPhoneOTAConfiguration/OTASecurity/OTASecurity.html) and [iPhone profile instructions](https://support.apple.com/guide/iphone/install-or-remove-configuration-profiles-iph6c493b19/ios).
+
 # Schoology iOS Ad Hoc device enrollment
 
 This feature lets the owner create a private invitation URL that recipients can use without receiving the enrollment administrator secret. It registers an iPhone for Ad Hoc distribution of Schoology (com.schoologytauri.app) and requests a fresh IPA build. This is not mobile-device management.

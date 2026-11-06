@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.6 — 2026-11-06
+
+- Include the exact registered OAuth callback URL on Schoology's district authorization URL, as required by Schoology's documented three-legged approval flow; retain the callback on the signed request-token request as well.
+
+
 ## 1.0.5 — 2026-11-06
 
 - Correct OAuth 1.0 percent-encoding and parameter sorting before HMAC-SHA1 signing, including the district callback URL.

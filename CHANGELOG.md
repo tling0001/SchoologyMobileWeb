@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4 — 2026-11-05
+
+- Send `oauth_callback` with the signed OAuth request-token request, where Schoology validates the return URL, instead of adding it to the authorization URL.
+
+
 ## 1.0.3 — 2026-11-05
 
 - Use the exact registered Schoology OAuth callback URL without a query string; correlate the short-lived OAuth transaction using the request token.

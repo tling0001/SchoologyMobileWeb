@@ -1,6 +1,7 @@
 'use strict';
 const crypto = require('node:crypto');
 const S = require('../../lib/schoology-server');
+const APP_ORIGIN = 'https://schoology-mobile-web.vercel.app';
 
 async function redis(command) {
   const url = process.env.UPSTASH_REDIS_REST_URL, token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -20,11 +21,7 @@ function normalizeSchoolDomain(value) {
     return parsed.host.toLowerCase();
   } catch { throw S.httpError(400, 'This school did not provide a valid HTTPS sign-in domain.'); }
 }
-function publicOrigin(req) {
-  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
-  if (!host || !/^[a-z0-9.-]+(?::[0-9]+)?$/.test(host)) throw S.httpError(400, 'Could not determine the browser callback address.');
-  return 'https://' + host;
-}
+function publicOrigin() { return APP_ORIGIN; }
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
   try {

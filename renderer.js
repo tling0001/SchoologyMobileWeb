@@ -335,7 +335,7 @@ function bind(){
   }
 
   const browserLogin=document.getElementById('browserLogin');
-  if(browserLogin)browserLogin.onclick=async()=>{if(A.platform==='web'&&state.schoolOAuthUrl){try{location.assign(state.schoolOAuthUrl)}catch(e){state.error=e.message||'Unable to open the school sign-in page.';render()}return}void startSchoolBrowserLogin()};
+  if(browserLogin)browserLogin.onclick=()=>{if(A.platform==='web'&&state.schoolOAuthUrl){try{const tab=window.open(state.schoolOAuthUrl,'_blank');if(!tab){state.error='Your browser blocked the Schoology sign-in tab. Allow pop-ups for this site and try again.';render();return}try{tab.opener=null}catch{};return}catch(e){state.error=e.message||'Unable to open the school sign-in page.';render();return}}void startSchoolBrowserLogin()};
   const si=document.getElementById('signIn');if(si)si.onclick=async()=>{const user=document.getElementById('user')?.value||'',password=document.getElementById('pass')?.value||'';state.error='';if(!user||!password){state.error='Enter your username or email and password.';render();return}si.disabled=true;si.textContent='Logging you in…';try{state.auth=await A.loginCredentials({user,password,schoolId:state.school?.id??null});await afterLogin()}catch(e){state.error=e.message||'Login failed.';render()}};
 
   const shade=document.getElementById('drawerShade'),drawer=document.getElementById('drawer');

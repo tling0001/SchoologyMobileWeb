@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2 — 2026-11-05
+
+- Show a preparation spinner after selecting a school while the district OAuth request is created.
+- Open the Schoology authorization page in a separate browser tab, keeping the Schoology Mobile Web page available.
+- Pin OAuth callbacks and post-approval redirects to `https://schoology-mobile-web.vercel.app/`.
+
+
 ## 1.0.1 — 2026-11-05
 
 - Complete district Schoology OAuth automatically through a same-tab redirect and return to the browser port.

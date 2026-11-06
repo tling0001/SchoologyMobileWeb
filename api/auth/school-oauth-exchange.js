@@ -1,6 +1,7 @@
 'use strict';
 const crypto = require('node:crypto');
 const S = require('../../lib/schoology-server');
+const APP_ORIGIN = 'https://schoology-mobile-web.vercel.app';
 
 async function redis(command) {
   const url = process.env.UPSTASH_REDIS_REST_URL, token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -25,11 +26,7 @@ function redirect(res, url) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   res.setHeader('Referrer-Policy', 'no-referrer'); res.end();
 }
-function callbackOrigin(req) {
-  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
-  if (!host || !/^[a-z0-9.-]+(?::[0-9]+)?$/.test(host)) throw S.httpError(400, 'Invalid callback host.');
-  return 'https://' + host;
-}
+function callbackOrigin() { return APP_ORIGIN; }
 async function completeSchoolOAuth(req, res) {
   const state = String((req.query || {}).state || '');
   if (!/^[A-Za-z0-9_-]{43}$/.test(state)) throw S.httpError(400, 'The school sign-in request is invalid or has expired. Start again.');

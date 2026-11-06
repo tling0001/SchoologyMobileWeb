@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3 — 2026-11-05
+
+- Use the exact registered Schoology OAuth callback URL without a query string; correlate the short-lived OAuth transaction using the request token.
+
+
 ## 1.0.2 — 2026-11-05
 
 - Show a preparation spinner after selecting a school while the district OAuth request is created.

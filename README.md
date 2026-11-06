@@ -32,7 +32,7 @@ The built-in Schoology consumer credentials are only referenced by the server-si
 
 ## Important limitations
 
-- District SSO depends on the OAuth consumer's callback URL being configured in the Schoology developer application. Set its callback URL to `https://schoology-mobile-web.vercel.app/api/auth/school-oauth-exchange` (without a query string); the application adds a one-time OAuth state parameter at runtime and always returns to `https://schoology-mobile-web.vercel.app/`.
+- District SSO depends on the OAuth consumer's callback URL being configured in the Schoology developer application. Set its callback URL to `https://schoology-mobile-web.vercel.app/api/auth/school-oauth-exchange` (without a query string); the callback is sent without query parameters so it exactly matches the registered URL; the short-lived request token securely correlates the OAuth transaction. After approval, the application returns to `https://schoology-mobile-web.vercel.app/`.
 - Browser pages cannot install Schoology cookies into another domain, so authenticated embedded Schoology webviews and some course-app flows need a separate supported sign-in strategy.
 - The initial upload route is capped at 3 MB. Larger files need a staged object-storage upload flow (for example, a short-lived Vercel Blob upload token) before they can be forwarded server-side.
 - Desktop-only updater, local-file reveal/open, window chrome, and grade editing are not browser features yet.

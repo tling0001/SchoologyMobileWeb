@@ -28,14 +28,15 @@ function redirect(res, url) {
 }
 function callbackOrigin() { return APP_ORIGIN; }
 async function completeSchoolOAuth(req, res) {
-  const state = String((req.query || {}).state || '');
-  if (!/^[A-Za-z0-9_-]{43}$/.test(state)) throw S.httpError(400, 'The school sign-in request is invalid or has expired. Start again.');
-  const stored = await redis(['GETDEL', 'schoology:web:oauth:request:' + state]);
-  if (!stored) throw S.httpError(400, 'The school sign-in request expired. Start again.');
+  const requestToken = String((req.query || {}).oauth_token || '');
+  if (!requestToken || requestToken.length > 512) throw S.httpError(400, 'Schoology did not return a valid sign-in token. Start again.');
+  // Schoology returns the approved request token on the exact registered
+  // callback URL. Its unguessable value safely keys the short-lived transaction.
+  const stored = await redis(['GETDEL', 'schoology:web:oauth:request:' + requestToken]);
+  if (!stored) throw S.httpError(400, 'The school sign-in request expired or was not recognized. Start again.');
   let pending;
   try { pending = JSON.parse(stored); } catch { throw S.httpError(400, 'The school sign-in request is invalid. Start again.'); }
-  const requestToken = String((req.query || {}).oauth_token || '');
-  if (!requestToken || requestToken !== pending.oauthToken) throw S.httpError(400, 'Schoology returned an unexpected request token. Start sign-in again.');
+  if (requestToken !== pending.oauthToken) throw S.httpError(400, 'Schoology returned an unexpected request token. Start sign-in again.');
   // Schoology's documented three-legged flow exchanges the approved request
   // token directly; it does not require an oauth_verifier parameter.
   const accessResponse = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/oauth/access_token', {}, {

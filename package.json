@@ -1,6 +1,6 @@
 {
   "name": "schoology-mobile-web",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Vercel browser port using the original Schoology Desktop Port renderer",
   "engines": {

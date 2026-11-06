@@ -1,0 +1,9 @@
+# Changelog
+
+## 1.0.1 — 2026-11-05
+
+- Complete district Schoology OAuth automatically through a same-tab redirect and return to the browser port.
+- Follow Schoology's documented three-legged OAuth flow: match the approved request token and exchange it with its server-held token secret, without inventing an `oauth_verifier` requirement.
+- Exchange OAuth tokens on the server; keep consumer credentials and temporary token secrets out of browser JavaScript.
+- Store one-time OAuth state and short-lived session handoff codes in Upstash Redis.
+- Remove the manual browser-address copy/paste step from district sign-in.

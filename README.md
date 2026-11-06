@@ -6,8 +6,8 @@ This repository uses the original Schoology Desktop Port renderer, CSS, and imag
 
 - Original desktop renderer and styles from `tling0001/schoology-for-desktop-port` version `2026.06.0-port.178`
 - Installable PWA metadata, service-worker app-shell caching, and iOS home-screen launch-screen metadata; the Apple launch splash uses the Schoology loading-screen background and wordmark without the spinner, while the in-app animated loading splash remains unchanged.
-- Schoology username/password login and QR-code login run through Vercel functions.
-- OAuth request signing and the built-in desktop-port consumer credentials remain in server-side code and are never sent to browser JavaScript. User OAuth tokens persist in browser `localStorage` and are sent in same-origin request bodies to the API adapter, never in URLs or cookies. Passwords are not stored.
+- Schoology username/password login, QR-code login, and district single sign-on run through Vercel functions. District SSO uses Schoology's OAuth 1.0a request-token, authorization, verifier, and access-token exchange flow; the browser returns to this site automatically after approval.
+- OAuth request signing and the built-in desktop-port consumer credentials remain in server-side code and are never sent to browser JavaScript. District SSO request-token secrets and short-lived completion codes are stored in Upstash Redis with expiration and consumed once. Resulting user OAuth tokens persist in browser `localStorage` and are sent in same-origin request bodies to the API adapter, never in URLs or cookies. Passwords are not stored.
 - Authenticated API requests (course data, groups, messages, resources, grades, and calendar endpoints used by the renderer) are proxied through `/api/schoology`.
 - File attachments and assignment file submissions use `/api/schoology/upload`. The first stage limits files to 3 MB because of Vercel's serverless request-size ceiling.
 - Authenticated downloads are proxied through `/api/schoology/download` for HTTPS Schoology/school hosts and signed Schoology storage URLs.
@@ -32,7 +32,7 @@ The built-in Schoology consumer credentials are only referenced by the server-si
 
 ## Important limitations
 
-- District-specific SSO/browser handoff is not implemented yet; selecting a school in the browser port continues to the school-specific username/password form, while QR login remains available.
+- District SSO depends on the OAuth consumer's callback URL being configured in the Schoology developer application. Set its callback URL to the production site's `https://<your-domain>/api/auth/school-oauth-exchange` path (without a query string); the application adds a one-time OAuth state parameter at runtime.
 - Browser pages cannot install Schoology cookies into another domain, so authenticated embedded Schoology webviews and some course-app flows need a separate supported sign-in strategy.
 - The initial upload route is capped at 3 MB. Larger files need a staged object-storage upload flow (for example, a short-lived Vercel Blob upload token) before they can be forwarded server-side.
 - Desktop-only updater, local-file reveal/open, window chrome, and grade editing are not browser features yet.

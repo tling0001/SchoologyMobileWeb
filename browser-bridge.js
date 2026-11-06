@@ -13,7 +13,7 @@
     return null;
   }
   let authSession = loadAuth();
-  let pendingSchoolOAuth = null;
+  let oauthCallbackError = '';
   function saveAuth(value) {
     if (!value?.oauth_token || !value?.oauth_token_secret) throw new Error('Schoology did not return a valid OAuth session.');
     authSession = { oauth_token: String(value.oauth_token), oauth_token_secret: String(value.oauth_token_secret), user: value.user || null, userId: Number(value.userId || value.user?.id) || null };
@@ -100,12 +100,27 @@
   const unavailable = feature => Promise.reject(new Error(feature + ' is not available in the browser port yet.'));
   const bridge = {
     platform: 'web',
-    authState: async () => authSession ? { ...authSession, authenticated: true } : { authenticated: false, user: null },
+    authState: async () => {
+      const callback = new URL(location.href);
+      const code = callback.searchParams.get('school_oauth_code');
+      const callbackError = callback.searchParams.get('school_oauth_error');
+      if (code || callbackError) {
+        callback.searchParams.delete('school_oauth_code');
+        callback.searchParams.delete('school_oauth_error');
+        history.replaceState(history.state, '', callback.pathname + callback.search + callback.hash);
+        if (callbackError) oauthCallbackError = 'School sign-in could not be completed. Please try again.';
+        else {
+          try { saveAuth(await jsonRequest('/api/auth/school-oauth-exchange', { code })); }
+          catch (error) { oauthCallbackError = error.message || 'School sign-in could not be completed. Please try again.'; }
+        }
+      }
+      return authSession ? { ...authSession, authenticated: true } : { authenticated: false, user: null, oauthError: oauthCallbackError };
+    },
     networkOnline: async () => navigator.onLine,
     loginCredentials: async input => { const r = await jsonRequest('/api/auth/login', { user: input?.user, password: input?.password, schoolId: input?.schoolId }); return saveAuth(r); },
     loginQR: async qrData => { const payload = typeof qrData === 'string' ? qrData : (qrData?.data || qrData?.rawValue || qrData?.text || ''); if (typeof payload !== 'string' || !payload.trim()) throw new Error('The camera did not return a readable Schoology QR payload. Try scanning the QR code again.'); const r = await jsonRequest('/api/auth/qr', { qrData: payload.trim() }); return saveAuth(r); },
-    createSchoolOAuthUrl: async input => { const r = await jsonRequest('/api/auth/school-oauth', { domain: input?.domain }); if (!r.url || !r.oauth_token || !r.oauth_token_secret) throw new Error('Schoology returned an incomplete authorization session.'); pendingSchoolOAuth = { oauth_token: String(r.oauth_token), oauth_token_secret: String(r.oauth_token_secret) }; return r.url; },
-    completeSchoolOAuth: async input => { if (!pendingSchoolOAuth) throw new Error('The temporary school sign-in session expired. Generate a new authorization URL.'); const r = await jsonRequest('/api/auth/school-oauth-exchange', { oauth_token: pendingSchoolOAuth.oauth_token, oauth_token_secret: pendingSchoolOAuth.oauth_token_secret, callbackUrl: String(input?.callbackUrl || '') }); const saved = saveAuth(r); pendingSchoolOAuth = null; return saved; },
+    createSchoolOAuthUrl: async input => { const r = await jsonRequest('/api/auth/school-oauth', { domain: input?.domain }); if (!r.url) throw new Error('Schoology did not return an authorization URL.'); return r.url; },
+    completeSchoolOAuth: async () => { throw new Error('School sign-in completes automatically when Schoology redirects back to this website.'); },
     loginSchoolBrowser: async () => unavailable('District single-sign-on browser login. Use the experimental authorization-link flow instead.'),
     loginExternalSchool: async () => unavailable('District single-sign-on browser login. Use Schoology username/password or QR sign-in for now'),
     schoolSearch: async query => { const r = await fetch('/api/school-search?q=' + encodeURIComponent(query), { credentials: 'same-origin', cache: 'no-store' }); return (await readResponse(r)).schools || []; },

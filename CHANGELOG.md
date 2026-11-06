@@ -1,8 +1,13 @@
 # Changelog
 
+## 1.0.7 — 2026-11-06
+
+- Remove the unsupported duplicate `oauth_callback` parameter from the district authorization URL; keep the registered callback on the signed request-token request only.
+
+
 ## 1.0.6 — 2026-11-06
 
-- Include the exact registered OAuth callback URL on Schoology's district authorization URL, as required by Schoology's documented three-legged approval flow; retain the callback on the signed request-token request as well.
+- Attempted to include the callback URL on the district authorization URL; reverted in 1.0.7 after Schoology rejected it as an invalid return URL.
 
 
 ## 1.0.5 — 2026-11-06

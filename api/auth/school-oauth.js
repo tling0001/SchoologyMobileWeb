@@ -28,8 +28,8 @@ module.exports = async function handler(req, res) {
     await S.rateLimit(req, 'school-oauth', 10, 900);
     const body = S.parseBody(req), domain = normalizeSchoolDomain(body.domain), origin = publicOrigin(req);
     const callback = origin + '/api/auth/school-oauth-exchange';
-    // Keep the callback on the signed request-token request and also pass it
-    // on the district authorization URL as Schoology's documented flow requires.
+    // Schoology validates the registered callback on the signed request-token
+    // request. The authorization step uses the returned request token only.
     const response = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/oauth/request_token', { oauth_callback: callback }, { sign: true });
     if (response.status < 200 || response.status >= 300) {
       const upstreamBody = String(response.text || '').slice(0, 500);
@@ -40,7 +40,6 @@ module.exports = async function handler(req, res) {
     if (!oauthToken || !oauthSecret) throw S.httpError(502, 'Schoology returned an invalid sign-in token.');
     await redis(['SET', 'schoology:web:oauth:request:' + oauthToken, JSON.stringify({ oauthToken, oauthSecret, domain, origin }), 'EX', 600]);
     const authorization = new URL('https://' + domain + '/oauth/authorize');
-    authorization.searchParams.set('oauth_callback', callback);
     authorization.searchParams.set('oauth_token', oauthToken);
     return S.send(res, 200, { url: authorization.toString() });
   } catch (error) {

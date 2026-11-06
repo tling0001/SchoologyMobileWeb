@@ -31,7 +31,11 @@ module.exports = async function handler(req, res) {
     // OAuth 1.0a requires oauth_callback on the request-token request itself.
     // schoologyRequest adds GET parameters to the URL before signing it.
     const response = await S.schoologyRequest('GET', 'https://' + S.API_HOST + '/v1/oauth/request_token', { oauth_callback: callback }, { sign: true });
-    if (response.status < 200 || response.status >= 300) throw S.httpError(502, 'Schoology could not start school sign-in.');
+    if (response.status < 200 || response.status >= 300) {
+      const upstreamBody = String(response.text || '').slice(0, 500);
+      console.error('[school-oauth] request-token rejected', { status: response.status, body: upstreamBody });
+      throw S.httpError(502, 'Schoology could not start school sign-in (HTTP ' + response.status + '). Check the Vercel function log for the upstream OAuth error.');
+    }
     const token = new URLSearchParams(response.text), oauthToken = token.get('oauth_token'), oauthSecret = token.get('oauth_token_secret');
     if (!oauthToken || !oauthSecret) throw S.httpError(502, 'Schoology returned an invalid sign-in token.');
     // Correlate the callback with the unique, unpredictable request token.

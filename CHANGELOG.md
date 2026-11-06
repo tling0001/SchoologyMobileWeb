@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5 — 2026-11-06
+
+- Correct OAuth 1.0 percent-encoding and parameter sorting before HMAC-SHA1 signing, including the district callback URL.
+- Log the upstream request-token HTTP status and response body when Schoology rejects sign-in, and surface the HTTP status in the app.
+
+
 ## 1.0.4 — 2026-11-05
 
 - Send `oauth_callback` with the signed OAuth request-token request, where Schoology validates the return URL, instead of adding it to the authorization URL.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.8 — 2026-11-06
+
+- Match the port.51 app viewport settings in the browser entry point while retaining the existing PWA safe-area support.
+
+
 ## 1.0.7 — 2026-11-06
 
 - Remove the unsupported duplicate `oauth_callback` parameter from the district authorization URL; keep the registered callback on the signed request-token request only.

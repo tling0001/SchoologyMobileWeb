@@ -1227,16 +1227,52 @@ async function loadFolder(course,folderId,push=true,title='Materials'){
   try{ const x=await A.api({path:`courses/${sid}/folder/${folderId||0}`,params:{}});
   const items=x['folder-item']||x.folder_item||x.folderItems||x.items||[];
   const parent=folderId?`<button class="materialBackRow" id="materialBack"><span class="materialIcon">${officialBackIcon()}</span><span><b>Back to ${esc(backFolderTitle)}</b></span></button>`:'';
-  const rows=items.map((f,i)=>{
-    const type=String(f.type||'');
+  window.__schoologyFolderItems=[];
+  window.__schoologyMaterialFolderCache=new Map([[Number(folderId||0),items]]);
+  const renderMaterialRows=(list,depth=0)=>list.map(f=>{
+    const index=window.__schoologyFolderItems.length;
+    window.__schoologyFolderItems.push(f);
+    const folder=String(f.type||'').toLowerCase()==='folder';
     const icon=materialIconForType(f);
-    return `<button class="materialRow" data-material-index="${i}"><span class="materialIcon officialMaterialIcon"><img src="assets/icons/${icon}" alt=""></span><span><b>${esc(f.title||'Untitled')}</b></span><span>›</span></button>`;
+    const description=f.description||f.folder_description||f.folderDescription||(folder?f.body:'')||'';
+    return `<button class="materialRow${folder?' materialFolderRow':''}" data-material-index="${index}" data-material-depth="${depth}" style="--material-indent:${depth*18}px" ${folder?'aria-expanded="false"':''}><span class="materialIcon officialMaterialIcon"><img src="assets/icons/${icon}" alt=""></span><span class="materialRowText"><b>${esc(f.title||'Untitled')}</b>${description?`<small>${esc(String(description).replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/\s+/g,' ').trim())}</small>`:''}</span><span>${folder?'<span class="materialFolderChevron" aria-hidden="true">⌄</span>':'›'}</span></button>`;
   }).join('');
-  el.innerHTML=parent+(items.length?`<div class="materialList">${rows}</div>`:'<div class="empty"><h2>This folder is empty</h2></div>');
-  window.__schoologyFolderItems=items;
+  el.innerHTML=parent+(items.length?`<div class="materialList">${renderMaterialRows(items,0)}</div>`:'<div class="empty"><h2>This folder is empty</h2></div>');
   document.getElementById('materialBack')?.addEventListener('click',()=>navigateBack());
-  document.querySelectorAll('[data-material-index]').forEach(b=>b.onclick=async()=>{
+  el.removeEventListener('click',el.__schoologyInlineFolderHandler,true);
+  el.__schoologyInlineFolderHandler=async event=>{
+    const button=event.target?.closest?.('[data-material-index]');
+    if(!button||!el.contains(button))return;
+    const item=window.__schoologyFolderItems?.[Number(button.dataset.materialIndex)];
+    if(String(item?.type||'').toLowerCase()!=='folder')return;
+    event.preventDefault();event.stopImmediatePropagation();
+    const childId=Number(item.id??item.folder_id??item.folderId??0);
+    const existing=button.nextElementSibling?.matches?.('.materialNestedList')?button.nextElementSibling:null;
+    if(existing){existing.remove();button.classList.remove('is-expanded');button.setAttribute('aria-expanded','false');return}
+    if(!childId){alert('Schoology did not provide a valid folder ID.');return}
+    if(button.disabled)return;
+    button.disabled=true;
+    try{
+      let children=window.__schoologyMaterialFolderCache.get(childId);
+      if(!children){
+        const response=await A.api({path:`courses/${sid}/folder/${childId}`,params:{}});
+        children=response['folder-item']||response.folder_item||response.folderItems||response.items||[];
+        window.__schoologyMaterialFolderCache.set(childId,children);
+      }
+      if(!button.isConnected)return;
+      const nested=document.createElement('div');nested.className='materialNestedList';nested.dataset.materialChildrenFor=String(childId);
+      nested.innerHTML=children.length?renderMaterialRows(children,Number(button.dataset.materialDepth||0)+1):'<div class="materialNestedEmpty">This folder is empty</div>';
+      button.after(nested);button.classList.add('is-expanded');button.setAttribute('aria-expanded','true');
+    }catch(error){showSchoologyRequestError(error,()=>{if(button.isConnected)button.click()})}
+    finally{button.disabled=false}
+  };
+  el.addEventListener('click',el.__schoologyInlineFolderHandler,true);
+  el.removeEventListener('click',el.__schoologyMaterialItemHandler);
+  el.__schoologyMaterialItemHandler=async event=>{
+    const b=event.target?.closest?.('[data-material-index]');
+    if(!b||!el.contains(b))return;
     const f=window.__schoologyFolderItems[+b.dataset.materialIndex];
+    if(String(f?.type||'').toLowerCase()==='folder')return;
     if(String(f.type)==='folder'){loadFolder(course,f.id,true,f.title||'Folder').catch(e=>showSchoologyRequestError(e,()=>loadFolder(course,f.id,false,f.title||'Folder')));return}
     if(String(f.type)==='assignment'){showAssignment(sid,f.id);return}
     const directDocType=String(f.document_type||f.documentType||'').toLowerCase();
@@ -1274,9 +1310,12 @@ async function loadFolder(course,folderId,push=true,title='Materials'){
       if(!fileUrl){ if(data.web_url||data.webUrl){showEmbeddedWeb(data.web_url||data.webUrl,data.title||f.title||'Document');return} throw new Error('Schoology did not provide a downloadable file URL.'); }
       const rawName=data.filename||data.fileName||data.title||f.title||'Schoology file'; const mime=data.filemime||data.fileMIME||data.converted_filemime||data.convertedFileMime||f.filemime||f.fileMIME||'application/octet-stream'; const ext=data.file_extension||data.fileExtension||data.extension||data.converted_extension||data.convertedExtension||f.file_extension||f.fileExtension||f.extension||f.converted_extension||f.convertedExtension||extensionFromUrl(fileUrl)||extensionFromMime(mime); const filename=/\.[A-Za-z0-9]{1,8}$/.test(rawName)?rawName:(ext?rawName+'.'+String(ext).replace(/^\./,''):rawName); const r=await downloadWithFeedback(b,{url:fileUrl,filename,mime});
     }catch(e){alert('Unable to open file: '+e.message)}})();return
-  });
+  };
+  el.addEventListener('click',el.__schoologyMaterialItemHandler);
   }catch(e){showSchoologyRequestError(e,()=>loadFolder(course,folderId,false,title));}
 }
+
+
 
 function showSchoologyRequestError(error,retry){
  const msg=String(error?.message||error||'Schoology could not load this page.');document.getElementById('schoologyNetworkError')?.remove();
@@ -1644,30 +1683,35 @@ async function loadCourseTab(course,tab){
 
 function animateTab(){ /* Restored to the Android pager's stable tab layout; no custom overlay animation. */ }
 function renderUpcoming(events){
- const arr=Array.isArray(events)?events:[];
- if(!arr.length)return '<div class="empty"><h2>No upcoming events</h2></div>';
- const groups=[];const byDate=new Map();
- const sorted=arr.slice().sort((a,b)=>new Date(String(a.start||'').replace(' ','T'))-new Date(String(b.start||'').replace(' ','T')));
- for(const e of sorted){
-   const d=new Date(String(e.start||'').replace(' ','T'));
-   const key=Number.isNaN(d.getTime())?'':`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
-   if(!byDate.has(key)){const g={key,date:d,items:[]};byDate.set(key,g);groups.push(g);}
-   byDate.get(key).items.push(e);
- }
- const html=[];
- for(const g of groups){
-   const dateLabel=Number.isNaN(g.date.getTime())?'':g.date.toLocaleDateString([], {weekday:'short',month:'short',day:'numeric',year:'numeric'});
-   html.push(`<div class="upcomingDateHeader"><span>${esc(dateLabel)}</span><span class="upcomingDateRule"></span></div>`);
-   for(const e of g.items){
-     const type=String(e.type||'').toLowerCase();
-     const icon=type==='assignment'?'ic_assignment.png':type==='assessment'?'ic_test_quiz.png':['assessment_v2','managed_assessment','quiz'].includes(type)?'ic_assessment_48dp.png':type==='discussion'?'ic_discussion.png':type==='external_tool'?'ic_external_tool.png':type==='event'?'home_dash_upcoming.png':'ic_date_range_24px.png';
-     const allDay=String(e.all_day)==='1'||e.allDay===1;
-     const time=!allDay&&e.start?new Date(String(e.start).replace(' ','T')).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';
-     html.push(`<button class="upcomingAssignment" data-course-upcoming-id="${esc(e.id||'')}" data-upcoming-type="${esc(type)}"><span class="assignmentIcon officialEventIcon">${officialOrAssetIcon(icon,'')}</span><span class="assignmentInfo"><b>${esc(e.title||'Untitled')}</b><small>${esc(time)}</small></span><span class="rowChevron">›</span></button>`);
-   }
- }
- return `<div class="upcomingList">${html.join('')}</div>`;
+  const arr=Array.isArray(events)?events:[];
+  if(!arr.length)return '<div class="empty"><h2>No upcoming events</h2></div>';
+  const groups=[];const byDate=new Map();
+  const sorted=arr.slice().sort((a,b)=>new Date(String(a.start||'').replace(' ','T'))-new Date(String(b.start||'').replace(' ','T')));
+  for(const e of sorted){
+    const d=new Date(String(e.start||'').replace(' ','T'));
+    const key=Number.isNaN(d.getTime())?'':`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+    if(!byDate.has(key)){const g={key,date:d,items:[]};byDate.set(key,g);groups.push(g);}
+    byDate.get(key).items.push(e);
+  }
+  const html=[];
+  for(const g of groups){
+    const dateLabel=Number.isNaN(g.date.getTime())?'':g.date.toLocaleDateString([], {weekday:'short',month:'short',day:'numeric',year:'numeric'});
+    const compactDateLabel=Number.isNaN(g.date.getTime())?'':g.date.toLocaleDateString([], {month:'numeric',day:'numeric'});
+    html.push(`<section class="upcomingDateGroup"><div class="upcomingDateHeader"><span class="upcomingDateFull">${esc(dateLabel)}</span><span class="upcomingDateCompact">${esc(compactDateLabel)}</span><span class="upcomingDateRule"></span></div><div class="upcomingDateSection">`);
+    for(const e of g.items){
+      const type=String(e.type||'').toLowerCase();
+      const icon=type==='assignment'?'ic_assignment.png':type==='assessment'?'ic_test_quiz.png':['assessment_v2','managed_assessment','quiz'].includes(type)?'ic_assessment_48dp.png':type==='discussion'?'ic_discussion.png':type==='external_tool'?'ic_external_tool.png':type==='event'?'home_dash_upcoming.png':'ic_date_range_24px.png';
+      const allDay=String(e.all_day)==='1'||e.allDay===1;
+      const time=!allDay&&e.start?new Date(String(e.start).replace(' ','T')).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';
+      html.push(`<button class="upcomingAssignment" data-course-upcoming-id="${esc(e.id||'')}" data-upcoming-type="${esc(type)}"><span class="assignmentIcon officialEventIcon">${officialOrAssetIcon(icon,'')}</span><span class="assignmentInfo"><b>${esc(e.title||'Untitled')}</b><small>${esc(time)}</small></span><span class="rowChevron">›</span></button>`);
+    }
+    html.push('</div></section>');
+  }
+  return `<div class="upcomingList upcomingDateGroups">${html.join('')}</div>`;
 }
+
+
+
 function formatSchoologyDate(v){if(v===null||v===undefined||v==='')return '';const n=Number(v);const d=(Number.isFinite(n)&&n>0)?new Date(n*1000):new Date(String(v).replace(' ','T'));if(Number.isNaN(d.getTime()))return String(v);return d.toLocaleDateString([], {weekday:'short',month:'short',day:'numeric',year:'numeric'})+' at '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});}
 function formatApiDate(d){const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 async function loadSectionGrades(course){
@@ -1778,7 +1822,7 @@ function renderOverallGrade(sec){
  const comment=typeof final.comment==='string'?final.comment:(final.comment?.comment||final.comment?.body||'');
  return `<div class="gradeOverallCard"><div class="label">Overall Grade</div><div class="value">${esc(display.value)}</div>${comment?`<div class="gradeOverallTeacherComment"><b>Teacher Comment</b><div>${comment}</div></div>`:''}</div>`;
 }
-function renderGradePeriods(rows,periods,categories){
+function renderGradePeriods(rows,periods,categories,idPrefix='',collapseInitially=false){
  const ps=periods.grading_period||periods.gradePeriod||periods.period||periods.periods||[];
  const cats=categories.grading_category||categories.category||categories.categories||[];
  const catMap={};cats.forEach(c=>{catMap[String(c.id)]={title:c.title||c.name||'Category',weight:c.weight??c.percent??c.percentage??c.weight_percent??c.weightPercentage};});
@@ -1795,15 +1839,15 @@ function renderGradePeriods(rows,periods,categories){
  return pids.map((pid,pi)=>{
   const pg=periodGroups[pid], title=pg.__title||'Grading Period';
   const catIds=Object.keys(pg).filter(k=>k!=='__title');
-  return `<section class="gradePeriod" id="grade-period-${pi}">
-   <button class="gradePeriodHeader" data-grade-toggle="grade-period-body-${pi}" aria-expanded="true"><span>${esc(title.toUpperCase())}</span><span class="gradeChevron">⌃</span></button>
-   <div id="grade-period-body-${pi}">
+  return `<section class="gradePeriod${collapseInitially ? " collapsed" : ""}" id="${idPrefix}grade-period-${pi}">
+   <button class="gradePeriodHeader" data-grade-toggle="${idPrefix}grade-period-body-${pi}" aria-expanded="${collapseInitially ? "false" : "true"}"><span>${esc(title.toUpperCase())}</span><span class="gradeChevron">⌃</span></button>
+   <div id="${idPrefix}grade-period-body-${pi}">
    ${catIds.map((cid,ci)=>{
     const meta=catMap[cid]||{title:cid==='0'?'Ungraded':'Category',weight:null};const list=pg[cid];
     const weight=meta.weight!=null?`<span class="weight">${esc(meta.weight)}%</span>`:'';
-    return `<div class="gradeCategory" id="grade-cat-${pi}-${ci}">
-      <button class="gradeCategoryHeader" data-grade-toggle="grade-cat-body-${pi}-${ci}" aria-expanded="true"><span>${esc(meta.title)}</span>${weight}<span class="gradeChevron">⌃</span></button>
-      <div class="gradeCategoryBody" id="grade-cat-body-${pi}-${ci}">
+    return `<div class="gradeCategory${collapseInitially ? " collapsed" : ""}" id="${idPrefix}grade-cat-${pi}-${ci}">
+      <button class="gradeCategoryHeader" data-grade-toggle="${idPrefix}grade-cat-body-${pi}-${ci}" aria-expanded="${collapseInitially ? "false" : "true"}"><span>${esc(meta.title)}</span>${weight}<span class="gradeChevron">⌃</span></button>
+      <div class="gradeCategoryBody" id="${idPrefix}grade-cat-body-${pi}-${ci}">
       ${list.sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''))).map(a=>{
        const g=a.gradeData||{};const raw=g.grade??g.calculated_grade??g.score??'—';const max=a.max_points??a.maxPoints??g.max_points??g.maxPoints;
        const value=(raw!=='—'&&max!=null&&String(max)!=='')?`${raw}/${max}`:raw;
@@ -1817,6 +1861,8 @@ function renderGradePeriods(rows,periods,categories){
   </section>`;
  }).join('');
 }
+
+
 function renderGrades(rows){return renderGradePeriods(rows,{grading_period:[]},{grading_category:[]});}
 
 function openNativeCommentComposer(kind,view,parentId='0'){
@@ -2297,15 +2343,15 @@ async function loadTab(){
       await loadCalendarUpcomingData();
       const month=state.calendarDate?new Date(state.calendarDate):new Date(); state.calendarDate=new Date(month.getFullYear(),month.getMonth(),1);
       const selected=state.calendarSelectedDate?new Date(state.calendarSelectedDate):new Date();
-      const monthStart=new Date(month.getFullYear(),month.getMonth(),1),monthEnd=new Date(month.getFullYear(),month.getMonth()+1,0); const monthKey=`${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,'0')}`;
-      if(state.calendarEventsMonth!==monthKey){const x=await A.api({path:`users/${uid}/events`,params:{start:`${monthKey}-01`,end:`${monthKey}-${String(monthEnd.getDate()).padStart(2,'0')}`,limit:200}});state.calendarEvents=x.event||x.events||[];state.calendarEventsMonth=monthKey;}
+      const monthStart=new Date(month.getFullYear(),month.getMonth(),1),monthEnd=new Date(month.getFullYear(),month.getMonth()+1,0),monthEndExclusive=new Date(month.getFullYear(),month.getMonth()+1,1); const monthKey=`${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,'0')}`;
+      if(state.calendarEventsMonth!==monthKey){const x=await A.api({path:`users/${uid}/events`,params:{start_date:formatApiDate(monthStart),end_date:formatApiDate(monthEndExclusive),limit:200}});state.calendarEvents=x.event||x.events||[];state.calendarEventsMonth=monthKey;}
       const arr=Array.isArray(state.calendarEvents)?state.calendarEvents:[];const byDay={};for(const e of arr){const raw=e.start||e.start_date||e.date||e.startDate||'';const key=String(raw).slice(0,10);if(key)(byDay[key]||(byDay[key]=[])).push(e)}
       const selectedKey=formatApiDate(selected),days=monthStart.getDay(),rows=Math.ceil((days+monthEnd.getDate())/7),cells=[];
       for(let i=0;i<rows*7;i++){const n=i-days+1,inMonth=n>=1&&n<=monthEnd.getDate(),d=inMonth?new Date(month.getFullYear(),month.getMonth(),n):null,key=d?formatApiDate(d):'',evs=key?(byDay[key]||[]):[];cells.push(`<button class="calendarDay ${key===selectedKey?'selected':''} ${inMonth?'':'outside'}" data-calendar-day="${key}"><b>${inMonth?n:''}</b>${evs.length?'<i class="calendarEventMarker" aria-hidden="true"></i>':''}</button>`)}
-      pager.innerHTML=`<section class="calendarAndroidPage"><div class="calendarLandscapeMonth"><div class="calendarMonthWrap"><header class="calendarMonthHeader"><button id="calendarPrev" aria-label="Previous month"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M15.41 16.59 10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg></button><b>${esc(month.toLocaleDateString([], {month:'long',year:'numeric'}))}</b><button id="calendarNext" aria-label="Next month"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button></header><div class="calendarWeekLabels">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<span>${d}</span>`).join('')}</div><div class="calendarGrid">${cells.join('')}</div></div><div class="calendarLandscapeUpcoming"><div class="calendarUpcomingHeader">Upcoming</div><div id="calendarUpcomingAll" class="calendarEventList">${renderCalendarRows(upcomingNow(month))||'<div class="androidEmptyState">No upcoming events</div>'}</div></div></div><div id="calendarEventList" class="calendarEventList calendarSelectedDayList">${renderCalendarRows(byDay[selectedKey]||[])||'<div class="androidEmptyState">No upcoming events</div>'}</div></section>`;
+      pager.innerHTML=`<section class="calendarAndroidPage"><div class="calendarLandscapeMonth"><div class="calendarMonthWrap"><header class="calendarMonthHeader"><button id="calendarPrev" aria-label="Previous month"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M15.41 16.59 10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg></button><b>${esc(month.toLocaleDateString([], {month:'long',year:'numeric'}))}</b><button id="calendarNext" aria-label="Next month"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button></header><div class="calendarWeekLabels">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<span>${d}</span>`).join('')}</div><div class="calendarGrid">${cells.join('')}</div></div><div class="calendarLandscapeUpcoming calendarSelectedDatePanel"><div id="calendarSelectedDateLabel" class="calendarUpcomingHeader">${esc(selected.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'}))}</div><div id="calendarSelectedDayListLandscape" class="calendarEventList">${renderCalendarRows(byDay[selectedKey]||[])||'<div class="androidEmptyState">No events on this date</div>'}</div></div></div><div id="calendarEventList" class="calendarEventList calendarSelectedDayList">${renderCalendarRows(byDay[selectedKey]||[])||'<div class="androidEmptyState">No upcoming events</div>'}</div></section>`;
       document.getElementById('calendarPrev')?.addEventListener('click',async()=>{state.calendarDate=new Date(month.getFullYear(),month.getMonth()-1,1);state.calendarEventsMonth='';await loadCalendarMonth()});
       document.getElementById('calendarNext')?.addEventListener('click',async()=>{state.calendarDate=new Date(month.getFullYear(),month.getMonth()+1,1);state.calendarEventsMonth='';await loadCalendarMonth()});
-      document.querySelectorAll('[data-calendar-day]').forEach(btn=>btn.addEventListener('click',()=>{const key=btn.dataset.calendarDay;if(!key)return;state.calendarSelectedDate=new Date(key+'T12:00:00');document.querySelectorAll('[data-calendar-day]').forEach(x=>x.classList.toggle('selected',x===btn));const list=document.getElementById('calendarEventList');if(list)list.innerHTML=renderCalendarRows(byDay[key]||[])||'<div class="androidEmptyState">No upcoming events</div>';bindEventRows(arr)}));
+      document.querySelectorAll('[data-calendar-day]').forEach(btn=>btn.addEventListener('click',()=>{const key=btn.dataset.calendarDay;if(!key)return;state.calendarSelectedDate=new Date(key+'T12:00:00');document.querySelectorAll('[data-calendar-day]').forEach(x=>x.classList.toggle('selected',x===btn));const selectedEvents=byDay[key]||[];const list=document.getElementById('calendarEventList');if(list)list.innerHTML=renderCalendarRows(selectedEvents)||'<div class="androidEmptyState">No events on this date</div>';const landscapeList=document.getElementById('calendarSelectedDayListLandscape');if(landscapeList)landscapeList.innerHTML=renderCalendarRows(selectedEvents)||'<div class="androidEmptyState">No events on this date</div>';const selectedLabel=document.getElementById('calendarSelectedDateLabel');if(selectedLabel)selectedLabel.textContent=new Date(key+'T12:00:00').toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'});bindEventRows(arr)}));
       bindEventRows([...upcomingNow(month),...arr]);
     };
     const loadCalendarUpcoming=async()=>{
@@ -2385,7 +2431,7 @@ document.querySelectorAll('[data-notification-index]').forEach(b=>b.onclick=()=>
     document.getElementById('peopleDirectoryRefresh')?.addEventListener('click',()=>{const button=document.getElementById('peopleDirectoryRefresh');button?.classList.add('spinning');loadTab().finally(()=>document.getElementById('peopleDirectoryRefresh')?.classList.remove('spinning'))});
     document.querySelectorAll('[data-person-index]').forEach(b=>b.onclick=()=>{const u=window.__schoologyPeople[+b.dataset.personIndex];state.profileUser=u;state.tab='profile';state.profileTab='updates';state.toolbarTitle='Profile';render();loadTab()});
   }else if(state.tab==='settings'){
-    c.innerHTML=`<section class="settingsPage"><div class="settingsGroup"><h2>Appearance</h2><label class="settingRow"><span><b>Theme</b><small>Choose light, dark, or follow your system appearance</small></span><select id="themeModeSelect" class="settingSelect"><option value="system" ${state.themeMode==='system'?'selected':''}>System default</option><option value="light" ${state.themeMode==='light'?'selected':''}>Light</option><option value="dark" ${state.themeMode==='dark'?'selected':''}>Dark</option></select></label></div><div class="settingsGroup"><h2>Website Notifications</h2><label class="settingRow"><span><b>Schoology notifications</b><small>Receive Schoology push notifications even when this website is closed</small></span><span class="settingSwitch"><input class="settingSwitchInput" type="checkbox" id="desktopNotificationsToggle" ${state.desktopNotifications?'checked':''}><span class="settingSwitchTrack" aria-hidden="true"></span></span></label><label class="settingRow"><span><b>Notification sound</b><small>Play the system notification sound for new activity</small></span><span class="settingSwitch"><input class="settingSwitchInput" type="checkbox" id="notificationSoundToggle" ${state.notificationSound?'checked':''} ${state.desktopNotifications?'':'disabled'}><span class="settingSwitchTrack" aria-hidden="true"></span></span></label></div><div class="settingsGroup"><h2>Account Settings</h2><button id="accountInfo" class="settingRow settingButton"><span><b>Account Info</b></span><span>›</span></button></div><div class="settingsGroup"><button id="checkForUpdates" class="settingRow settingButton"><span><b>Check for Updates</b><small>Check for a newer Schoology desktop port</small></span><span>›</span></button><button id="tryLiquidGlass" class="settingRow settingButton"><span><b>Try Schoology Liquid Glass</b><small>Download the latest Schoology Liquid Glass release</small></span><span>›</span></button><button id="tryExpressive" class="settingRow settingButton"><span><b>Try Schoology Expressive</b><small>Download the latest Schoology Expressive release</small></span><span>›</span></button></div><div class="settingsVersion">Version: ${esc(state.appVersion||'2026.06.0-port.168')}</div></section>`;
+    c.innerHTML=`<section class="settingsPage"><div class="settingsGroup"><h2>Appearance</h2><label class="settingRow"><span><b>Theme</b><small>Choose light, dark, or follow your system appearance</small></span><select id="themeModeSelect" class="settingSelect"><option value="system" ${state.themeMode==='system'?'selected':''}>System default</option><option value="light" ${state.themeMode==='light'?'selected':''}>Light</option><option value="dark" ${state.themeMode==='dark'?'selected':''}>Dark</option></select></label></div><div class="settingsGroup"><h2>Website Notifications</h2><label class="settingRow"><span><b>Schoology notifications</b><small>Receive Schoology push notifications even when this website is closed</small></span><span class="settingSwitch"><input class="settingSwitchInput" type="checkbox" id="desktopNotificationsToggle" ${state.desktopNotifications?'checked':''}><span class="settingSwitchTrack" aria-hidden="true"></span></span></label><label class="settingRow"><span><b>Notification sound</b><small>Play the system notification sound for new activity</small></span><span class="settingSwitch"><input class="settingSwitchInput" type="checkbox" id="notificationSoundToggle" ${state.notificationSound?'checked':''} ${state.desktopNotifications?'':'disabled'}><span class="settingSwitchTrack" aria-hidden="true"></span></span></label></div><div class="settingsGroup"><h2>Account Settings</h2><button id="accountInfo" class="settingRow settingButton"><span><b>Account Info</b></span><span>›</span></button></div><div class="settingsGroup"><button id="checkForUpdates" class="settingRow settingButton"><span><b>Check for Updates</b><small>Check for a newer Schoology desktop port</small></span><span>›</span></button><button id="tryLiquidGlass" class="settingRow settingButton"><span><b>Try Schoology Liquid Glass</b><small>Download the latest Schoology Liquid Glass release</small></span><span>›</span></button><button id="tryExpressive" class="settingRow settingButton"><span><b>Try Schoology Expressive</b><small>Download the latest Schoology Expressive release</small></span><span>›</span></button></div><div class="settingsVersion">Version: ${esc(state.appVersion||'1.0.12')}</div></section>`;
     document.getElementById('themeModeSelect')?.addEventListener('change',async e=>{applyTheme(e.target.value,false);try{await A.setThemeMode?.(e.target.value)}catch{}loadTab()});
     document.getElementById('desktopNotificationsToggle')?.addEventListener('change',async e=>{const next=!!e.target.checked;try{if(next&&A.requestWebsiteNotificationPermission){const permission=await A.requestWebsiteNotificationPermission();if(permission!=='granted')throw new Error('Allow notifications for this website in your browser settings.')}state.desktopNotifications=await A.setDesktopNotifications?.(next)!==false;const sound=document.getElementById('notificationSoundToggle');if(sound)sound.disabled=!state.desktopNotifications;if(state.desktopNotifications)startWebsiteNotifications()}catch(err){state.desktopNotifications=false;await A.setDesktopNotifications?.(false);e.target.checked=false;showAppDialog('Unable to enable notifications',err.message||String(err))}});
     document.getElementById('notificationSoundToggle')?.addEventListener('change',async e=>{const next=!!e.target.checked;try{state.notificationSound=await A.setNotificationSound?.(next)===true}catch(err){e.target.checked=state.notificationSound;showAppDialog('Unable to update notification sound',err.message||String(err))}});

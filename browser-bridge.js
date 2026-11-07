@@ -153,7 +153,7 @@
     getWindowChromeMode: async () => settings.windowChromeMode,
     setWindowChromeMode: async value => { settings.windowChromeMode = value || { overlay: false }; saveSettings(); },
     setWindowChrome: async () => true,
-    getAppVersion: async () => '2026.06.0-port.178',
+    getAppVersion: async () => '1.0.12',
     fetchImage: async url => String(url || ''),
     prepareWebSession: async () => { throw new Error('The browser cannot copy Schoology cookies into another domain. Embedded Schoology web sessions need a separate supported sign-in flow.'); },
     openExternal: async url => { const u = new URL(String(url || 'https://app.schoology.com/'), location.href); if (!['https:'].includes(u.protocol)) throw new Error('Only secure HTTPS links can be opened.'); window.open(u.href, '_blank', 'noopener,noreferrer'); return null; },

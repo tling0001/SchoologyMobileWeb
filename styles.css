@@ -4801,3 +4801,55 @@ body.androidSplashPage .androidSplash{position:fixed!important;inset:0!important
 .nativeDashboardCourse{border-radius:8px!important}
 .shell>.webContentHost,.shell>#content.embeddedContentActive{position:absolute!important;left:0!important;right:0!important;top:56px!important;bottom:0!important;width:auto!important;height:auto!important;z-index:20!important}
 .shell>.webContentHost .embeddedPage,.shell>.webContentHost .dashboardHybrid,.shell>#content.embeddedContentActive .embeddedPage,.shell>#content.embeddedContentActive .dashboardHybrid{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-height:0!important;padding:0!important;margin:0!important;overflow:hidden!important}
+
+
+/* port.51 rounded surface treatment: keep the renderer's existing list content, but
+   restore the card containers that the PWA's older markup did not expose. */
+.androidActivityCard,.activityCard,.eventCard,.messageCard{
+  margin:8px 8px 12px!important;
+  border:1px solid var(--theme-border,#dfe3e7)!important;
+  border-radius:9px!important;
+  overflow:hidden!important;
+  box-shadow:0 1px 3px rgba(0,0,0,.07)!important;
+}
+.androidActivityCard .activityBody{overflow-wrap:anywhere}
+:root[data-theme="dark"] .androidActivityCard,
+:root[data-theme="dark"] .activityCard,
+:root[data-theme="dark"] .eventCard,
+:root[data-theme="dark"] .messageCard{
+  background:var(--theme-surface,#202328)!important;
+  border-color:var(--theme-border,#393d43)!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.22)!important;
+}
+.gradeOverallCard,.gradePeriod,.gradeCategory{
+  margin:10px 12px!important;
+  border:1px solid var(--theme-border,#dfe3e7)!important;
+  border-radius:9px!important;
+  overflow:hidden!important;
+  background:var(--theme-surface,#fff)!important;
+  box-shadow:0 1px 3px rgba(0,0,0,.06)!important;
+}
+.gradePeriodHeader,.gradeCategoryHeader{border-radius:0!important}
+.gradePeriodBody,.gradeCategoryBody{min-width:0}
+:root[data-theme="dark"] .gradeOverallCard,
+:root[data-theme="dark"] .gradePeriod,
+:root[data-theme="dark"] .gradeCategory{
+  background:var(--theme-surface,#202328)!important;
+  border-color:var(--theme-border,#393d43)!important;
+  color:var(--theme-text,#e6e8eb)!important;
+}
+.calendarLandscapeMonth{gap:12px!important;padding:10px!important;box-sizing:border-box!important}
+.calendarMonthWrap,.calendarLandscapeUpcoming,.calendarSelectedDatePanel{
+  border:1px solid var(--theme-border,#dfe3e7)!important;
+  border-radius:10px!important;
+  overflow:hidden!important;
+  background:var(--theme-surface,#fff)!important;
+  box-shadow:0 1px 3px rgba(0,0,0,.06)!important;
+}
+.calendarEventRow{margin:4px 8px!important;width:calc(100% - 16px)!important;border:0!important;border-radius:7px!important}
+.calendarEventRow:hover,.calendarEventRow:focus-visible{background:var(--theme-hover,#f0f3f6)!important}
+:root[data-theme="dark"] .calendarMonthWrap,
+:root[data-theme="dark"] .calendarLandscapeUpcoming,
+:root[data-theme="dark"] .calendarSelectedDatePanel{background:var(--theme-surface,#202328)!important;border-color:var(--theme-border,#393d43)!important}
+:root[data-theme="dark"] .calendarEventRow{background:transparent!important;color:var(--theme-text,#e6e8eb)!important}
+:root[data-theme="dark"] .calendarEventRow:hover,:root[data-theme="dark"] .calendarEventRow:focus-visible{background:var(--theme-hover,#30363d)!important}

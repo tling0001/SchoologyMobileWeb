@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.12 — 2026-11-06
+
+- Update the Settings version label and browser bridge to report the actual PWA version.
+- Restore expandable inline course-material folders, including nested folder loading and cached child lists.
+- Restore port.51 grouped upcoming-event cards and collapse-ready grade-period markup.
+- Restore rounded post/activity, grade-period, and calendar surfaces with dark-mode equivalents.
+- Restore the calendar landscape selected-date panel and synchronize it when a date is selected.
+- Refresh the PWA shell cache to v13.
+
+
 ## 1.0.11 — 2026-11-06
 
 - Restore port.51 horizontally centered active tabs on narrow/overflowing tab strips.

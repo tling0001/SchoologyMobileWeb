@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.13 — 2026-11-06
+
+- Restore port.51 landscape navigation sidebars and three-pane layouts for courses, groups, and schools.
+- Add course and group Members views, with member rows opening the corresponding Schoology profiles.
+- Restore the collapsible Upcoming pane controls and the drawer profile separator.
+- Update the Settings version label and browser bridge version to 1.0.13; refresh the PWA shell cache to v14.
+
+
+## 1.0.13 — 2026-11-06
+
+- Restored port.51 landscape navigation sidebars and three-pane layouts for courses, groups, and schools.
+- Added the group and course Members views and the collapsible Upcoming pane controls.
+- Updated the drawer profile separator and landscape breakpoint to match the port.51 layout.
+
+
 ## 1.0.12 — 2026-11-06
 
 - Update the Settings version label and browser bridge to report the actual PWA version.

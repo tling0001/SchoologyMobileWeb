@@ -4853,3 +4853,27 @@ body.androidSplashPage .androidSplash{position:fixed!important;inset:0!important
 :root[data-theme="dark"] .calendarSelectedDatePanel{background:var(--theme-surface,#202328)!important;border-color:var(--theme-border,#393d43)!important}
 :root[data-theme="dark"] .calendarEventRow{background:transparent!important;color:var(--theme-text,#e6e8eb)!important}
 :root[data-theme="dark"] .calendarEventRow:hover,:root[data-theme="dark"] .calendarEventRow:focus-visible{background:var(--theme-hover,#30363d)!important}
+
+
+/* Port.51 landscape member directory and sidebar glyph fallback. */
+.sidebarNavGlyphText{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:19px;line-height:1;color:currentColor}
+.groupMemberRows{display:flex;flex-direction:column;gap:6px;padding:8px 12px}
+.groupMemberRow{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:8px 12px;border:1px solid var(--theme-border,#d9dee2);border-radius:10px;background:var(--theme-card,#fff);color:var(--theme-text,#253746);text-align:left;cursor:pointer}
+.groupMemberRow>span:nth-child(2){flex:1;min-width:0;overflow-wrap:anywhere}
+.groupMemberAvatar{display:flex;align-items:center;justify-content:center;flex:0 0 38px;width:38px;height:38px;overflow:hidden;border-radius:50%;background:var(--theme-hover,#eef2f5);font-weight:600}
+.groupMemberAvatar img{width:100%;height:100%;object-fit:cover}
+:root[data-theme="dark"] .groupMemberRow{background:var(--theme-card,#202428);border-color:var(--theme-border,#3a4148);color:var(--theme-text,#edf1f4)}
+@media(prefers-reduced-motion:reduce){.groupMemberRow{transition:none!important}}
+
+
+/* Landscape navigation refinements from port.51. */
+.profileMessagesDivider{height:1px;margin:8px 16px;background:var(--theme-border,#d9dee2)}
+.sidebarNavGlyphText{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:19px;line-height:1;color:currentColor}
+.groupMemberRows{display:flex;flex-direction:column;gap:6px;padding:8px 12px}
+.groupMemberRow{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:8px 12px;border:1px solid var(--theme-border,#d9dee2);border-radius:10px;background:var(--theme-card,#fff);color:var(--theme-text,#253746);text-align:left;cursor:pointer}
+.groupMemberRow>span:nth-child(2){flex:1;min-width:0;overflow-wrap:anywhere}
+.groupMemberAvatar{display:flex;align-items:center;justify-content:center;flex:0 0 38px;width:38px;height:38px;overflow:hidden;border-radius:50%;background:var(--theme-hover,#eef2f5);font-weight:600}
+.groupMemberAvatar img{width:100%;height:100%;object-fit:cover}
+.schoolProfileUpdate{margin:8px 10px 12px!important;border:1px solid var(--theme-border,#dfe3e7)!important;border-radius:10px!important;overflow:hidden!important;background:var(--theme-surface,#fff)!important;box-shadow:0 1px 3px rgba(0,0,0,.06)!important}
+:root[data-theme="dark"] .groupMemberRow,:root[data-theme="dark"] .schoolProfileUpdate{background:var(--theme-surface,#202328)!important;border-color:var(--theme-border,#393d43)!important;color:var(--theme-text,#edf1f4)!important}
+@media(prefers-reduced-motion:reduce){.groupMemberRow{transition:none!important}}

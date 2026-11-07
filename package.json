@@ -1,6 +1,6 @@
 {
   "name": "schoology-mobile-web",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "description": "Vercel browser port using the original Schoology Desktop Port renderer",
   "engines": {
@@ -8,9 +8,10 @@
   },
   "dependencies": {
     "busboy": "^1.6.0",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "pdfjs-dist": "^4.10.38"
   },
   "scripts": {
-    "build": "node scripts/generate-apple-splashes.js"
+    "build": "node scripts/generate-apple-splashes.js && node scripts/copy-pdfjs.mjs"
   }
 }

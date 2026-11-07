@@ -788,6 +788,39 @@ function showAssignmentAttachmentDialog(attachments){
   }));
   dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.classList.remove('open')},{once:true});
 }
+
+async function schoologyAssignmentSupportsAnnotations(sectionId,assignmentId) {
+  if(!sectionId||!assignmentId||!A.annotationRequest)return false;
+  try{
+    const result=await A.api({path:'v2/sections/'+encodeURIComponent(sectionId)+'/assignments/'+encodeURIComponent(assignmentId)});
+    const actions=result?.['@actions']||result?.actions||[];
+    return (Array.isArray(actions)?actions:[]).some(action=>{
+      const types=Array.isArray(action?.['@type'])?action['@type']:[action?.['@type']||action?.type];
+      return (types.includes('assignment:startAssignment')||types.includes('assignment:restoreAssignment'))&&!!(action?.['@href']||action?.href);
+    });
+  }catch(error){console.debug('Could not verify Schoology annotation availability:',error);return false;}
+}
+function openAnnotatedSubmissionPicker(){
+  const assignment=state.assignmentData||{},files=assignment.__annotationFiles||[];
+  if(!state.assignmentSupportsAnnotations||!files.length){showAppDialog('Annotated submission unavailable','This assignment does not currently provide a supported PDF for annotated submissions.');return;}
+  const openFile=async file=>{
+    const fileId=file.id||file.file_id||file.fileId;
+    const pdfUrl=file.file_download_url||file.fileDownloadURL||file.download_path||file.downloadPath||file.download_url||file.downloadUrl||file.url||file.resolveDownloadUrl||file.resolve_download_url;
+    if(!fileId||!pdfUrl){showAppDialog('Annotated submission unavailable','Schoology did not provide the PDF file details required to annotate this submission.');return;}
+    if(!window.schoologyAnnotationEditor?.open){showAppDialog('Annotation unavailable','The PDF annotation editor did not load.');return;}
+    try{
+      await window.schoologyAnnotationEditor.open({sectionId:state.assignmentView.sectionId,assignmentId:state.assignmentView.assignmentId,fileId:String(fileId),fileType:file.fileType||file.file_type||file.filemime||file.fileMIME||'application/pdf',pdfUrl,filename:file.title||file.fileTitle||file.filename||file.fileName||'Assignment PDF',onSubmitted:async()=>{await openAssignmentSubmissions(state.assignmentView.sectionId,state.assignmentView.assignmentId,state.assignmentData||{},false);}});
+    }catch(error){showAppDialog('Unable to open annotation editor',error?.message||String(error));}
+  };
+  if(files.length===1){void openFile(files[0]);return;}
+  const old=document.getElementById('annotatedSubmissionPicker');old?.remove();
+  const wrap=document.createElement('div');wrap.id='annotatedSubmissionPicker';wrap.className='appDialogOverlay';
+  wrap.innerHTML='<section class="appDialog assignmentAttachmentDialog" role="dialog" aria-modal="true"><h2>Create annotated submission</h2><div class="assignmentAttachmentList">'+files.map((file,i)=>'<button type="button" class="assignmentAttachmentRow" data-annotated-file="'+i+'"><span class="assignmentAttachmentName">'+esc(file.title||file.fileTitle||file.filename||file.fileName||'Assignment PDF')+'</span></button>').join('')+'</div><div class="appDialogActions"><button type="button" data-annotated-cancel>Cancel</button></div></section>';
+  document.body.appendChild(wrap);wrap.classList.add('open');
+  wrap.querySelector('[data-annotated-cancel]')?.addEventListener('click',()=>wrap.remove());
+  wrap.querySelectorAll('[data-annotated-file]').forEach(button=>button.addEventListener('click',async()=>{const file=files[Number(button.dataset.annotatedFile)];wrap.remove();if(file)await openFile(file);}));
+}
+
 async function showAssignment(sectionId,assignmentId,launchTab=null){
   const ltiLaunchTab=launchTab||null;
   const c=document.getElementById('content'); if(!c){ltiLaunchTab?.close();return}
@@ -857,10 +890,17 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
     }catch{}
     const canSubmit=flag(at.allow_dropbox)||flag(at.allowDropbox)||flag(at.allow_submission)||flag(at.allowSubmission)||flag(gradeItem.allow_dropbox)||flag(gradeItem.allowDropbox)||flag(gradeItem.allow_submission)||flag(gradeItem.allowSubmission);
     const allowComments=flag(at.allow_discussion)||flag(at.allowDiscussion)||flag(gradeItem.allow_discussion)||flag(gradeItem.allowDiscussion);
+    const annotationFiles=collectAssignmentAttachments(attachments).filter(file=>{
+      const name=String(file.filename||file.fileName||file.title||file.fileTitle||'');
+      const mime=String(file.filemime||file.fileMIME||file.mime||'').toLowerCase();
+      return !!(file.id||file.file_id||file.fileId)&&(mime.includes('pdf')||/\.pdf$/i.test(name))
+        &&!!(file.file_download_url||file.fileDownloadURL||file.download_path||file.downloadPath||file.download_url||file.downloadUrl||file.url||file.resolveDownloadUrl||file.resolve_download_url);
+    });
+    const supportsAnnotations=canSubmit&&!isTeacher&&annotationFiles.length>0&&await schoologyAssignmentSupportsAnnotations(sectionId,assignmentId);
     let assignmentGrade={};
     if(uid){try{const gr=await A.api({path:`sections/${sectionId}/grades`,params:{assignment_id:gradeItem.id||assignmentId,enrollment_id:(myEnrollment.id||undefined)}});assignmentGrade=(gr.grades?.grade||gr.grade||[])[0]||{}}catch{}}
     const resolvedGradeItemId=Number(gradeItem.id||gradeItem.grade_item_id||gradeItem.gradeItemId||gradeItem.gradeitem_id||gradeItem.gradeItemID||assignmentId)||Number(assignmentId);
-    state.assignmentCanSubmit=canSubmit; state.assignmentIsTeacher=isTeacher; state.assignmentAllowComments=allowComments; state.assignmentData={...at,__gradeItemId:resolvedGradeItemId}; state.assignmentEnrollmentId=myEnrollment.id||null;
+    state.assignmentCanSubmit=canSubmit; state.assignmentIsTeacher=isTeacher; state.assignmentSupportsAnnotations=supportsAnnotations; state.assignmentAllowComments=allowComments; state.assignmentData={...at,__gradeItemId:resolvedGradeItemId,__annotationFiles:annotationFiles}; state.assignmentEnrollmentId=myEnrollment.id||null;
     const tabs=`<button class="assignmentTab active" data-assignment-tab="info">Info</button>${allowComments?`<button class="assignmentTab" data-assignment-tab="comments">Comments</button>`:''}${!state.assignmentLandscape&&canSubmit?`<button class="assignmentTab" data-assignment-tab="submit">${isTeacher?'Grade Submissions':'Submissions'}</button>`:''}`;
     if(state.assignmentLandscape&&canSubmit){
       c.innerHTML=`<section class="assignmentAndroidPage assignmentLandscapePage"><div class="assignmentLandscapeSplit"><section class="assignmentInfoPane"><div class="assignmentTabs">${tabs}</div><div id="assignmentTabContent" class="assignmentTabContent"></div></section><aside class="assignmentSubmissionsPane"><div class="assignmentPaneHeader">${isTeacher?'Submissions':'Submissions'}</div><div id="assignmentSubmissionsPane" class="assignmentSubmissionsContent"></div></aside></div></section>`;
@@ -871,9 +911,10 @@ async function showAssignment(sectionId,assignmentId,launchTab=null){
       const el=document.getElementById('assignmentTabContent');if(!el)return;
       const teacherComment=typeof assignmentGrade.comment==='string'?assignmentGrade.comment:(assignmentGrade.comment?.comment||assignmentGrade.comment?.body||'');
       const attachmentItems=collectAssignmentAttachments(attachments);
-      el.innerHTML=`<div class="assignmentInfoHeader"><h1>${esc(at.title||'Assignment')}</h1><div>${esc(at.due||'')}</div></div>${attachmentItems.length?`<button type="button" id="viewAssignmentAttachments" class="assignmentAttachmentsButton">View Attachments (${attachmentItems.length})</button>`:''}<div class="assignmentDescription">${html||'<span class="muted">No description.</span>'}</div>${teacherComment?`<section class="assignmentTeacherComment"><b>Teacher Comment</b><div>${teacherComment}</div></section>`:''}<div class="assignmentMeta">${at.max_points!=null?`<span>${esc(at.max_points)} points</span>`:''}</div>`;
+      el.innerHTML=`<div class="assignmentInfoHeader"><h1>${esc(at.title||'Assignment')}</h1><div>${esc(at.due||'')}</div></div>${attachmentItems.length?`<button type="button" id="viewAssignmentAttachments" class="assignmentAttachmentsButton">View Attachments (${attachmentItems.length})</button>`:''}${supportsAnnotations?`<button type="button" id="annotateAssignmentPdf" class="annotationLaunchButton"><span aria-hidden="true">✎</span> Annotate PDF</button>`:''}<div class="assignmentDescription">${html||'<span class="muted">No description.</span>'}</div>${teacherComment?`<section class="assignmentTeacherComment"><b>Teacher Comment</b><div>${teacherComment}</div></section>`:''}<div class="assignmentMeta">${at.max_points!=null?`<span>${esc(at.max_points)} points</span>`:''}</div>`;
       state.assignmentTab='info';state.assignmentSubpage=null;state.submissionMenu=false;syncToolbar();
       document.getElementById('viewAssignmentAttachments')?.addEventListener('click',()=>showAssignmentAttachmentDialog(attachmentItems));
+      document.getElementById('annotateAssignmentPdf')?.addEventListener('click',openAnnotatedSubmissionPicker);
       hydrateMediaImages(el);
       el.querySelectorAll('a[href]').forEach(a=>a.addEventListener('click',async ev=>{const href=a.href||a.getAttribute('href')||'';if(!href||href==='#')return;ev.preventDefault();ev.stopPropagation();try{const result=await A.openExternal(href);if(result)showAppDialog('Unable to open link',result)}catch(e){showAppDialog('Unable to open assignment link',e.message||String(e))}}));
     };

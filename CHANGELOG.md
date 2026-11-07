@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.9 — 2026-11-06
+
+- Port the port.51 student PDF annotation workspace into the browser app, including its assignment launch flow, authenticated Schoology API bridge, and signed annotation-storage requests.
+- Add PDF.js build assets and the new port.51 Schoology logo/like assets while retaining PWA-specific artwork and layout.
+
+
 ## 1.0.8 — 2026-11-06
 
 - Match the port.51 app viewport settings in the browser entry point while retaining the existing PWA safe-area support.

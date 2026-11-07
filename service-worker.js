@@ -1,12 +1,13 @@
 'use strict';
 
-const CACHE_NAME = 'schoology-shell-v9';
+const CACHE_NAME = 'schoology-shell-v10';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/styles.css',
   '/renderer.js',
   '/browser-bridge.js',
+  '/annotation-editor.js',
   '/appboot.js',
   '/pwa-register.js',
   '/manifest.json',
@@ -56,7 +57,7 @@ self.addEventListener('fetch', event => {
   }
 
   event.respondWith(caches.match(request).then(cached => cached || fetch(request).then(response => {
-    if (response.ok && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.startsWith('/assets/'))) {
+    if (response.ok && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.startsWith('/assets/') || url.pathname.startsWith('/pdfjs/'))) {
       const copy = response.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
     }

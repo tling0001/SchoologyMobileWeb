@@ -97,6 +97,16 @@
     const result = await jsonRequest('/api/schoology', { path: input?.path, method: input?.method || 'GET', params: input?.params || {}, json: !!input?.json, oauth_token: auth.oauth_token, oauth_token_secret: auth.oauth_token_secret, user: auth.user, userId: auth.userId });
     return result.data;
   }
+  async function annotationRequest(input) {
+    const auth=requireAuth();
+    const response=await fetch('/api/schoology?action=annotation',{method:'POST',credentials:'omit',cache:'no-store',headers:{'Content-Type':'application/json','Accept':input?.binary?'application/pdf,application/octet-stream,application/json':'application/json'},body:JSON.stringify({...input,oauth_token:auth.oauth_token,oauth_token_secret:auth.oauth_token_secret,user:auth.user,userId:auth.userId})});
+    if(!response.ok){let detail={};try{detail=await response.json()}catch{}if(response.status===401)clearAuth();throw new Error(detail.error||('Annotation request failed (HTTP '+response.status+').'))}
+    const contentType=response.headers.get('content-type')||'';
+    if(input?.binary){const bytes=new Uint8Array(await response.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+0x8000,bytes.length)));return{base64:btoa(binary),contentType,status:response.status}}
+    const text=await response.text();if(contentType.toLowerCase().includes('json')){try{return JSON.parse(text)}catch{}}
+    return{text,contentType,status:response.status};
+  }
+
   const unavailable = feature => Promise.reject(new Error(feature + ' is not available in the browser port yet.'));
   const bridge = {
     platform: 'web',
@@ -125,6 +135,7 @@
     loginExternalSchool: async () => unavailable('District single-sign-on browser login. Use Schoology username/password or QR sign-in for now'),
     schoolSearch: async query => { const r = await fetch('/api/school-search?q=' + encodeURIComponent(query), { credentials: 'same-origin', cache: 'no-store' }); return (await readResponse(r)).schools || []; },
     api,
+    annotationRequest,
     assignmentComments: async input => { const auth=requireAuth(); const r=await jsonRequest('/api/schoology/assignment-comments', { sectionId: input?.sectionId, assignmentId: input?.assignmentId, parentId: input?.parentId, method: input?.method || 'GET', params: input?.params || {}, oauth_token: auth.oauth_token, oauth_token_secret: auth.oauth_token_secret, user: auth.user, userId: auth.userId }); return r.data; },
     logout: async () => { clearAuth(); try { await jsonRequest('/api/auth/logout', {}); } catch (_) {} return true; },
     getThemeMode: async () => settings.themeMode,

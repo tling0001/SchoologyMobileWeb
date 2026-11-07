@@ -1,0 +1,11 @@
+import { cp, mkdir, access } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const source=path.join(root,'node_modules','pdfjs-dist');
+const destination=path.join(root,'pdfjs');
+await access(path.join(source,'build','pdf.mjs'));
+await mkdir(destination,{recursive:true});
+for(const file of ['pdf.mjs','pdf.worker.mjs'])await cp(path.join(source,'build',file),path.join(destination,file));
+for(const directory of ['cmaps','standard_fonts','wasm'])await cp(path.join(source,directory),path.join(destination,directory),{recursive:true});
+console.log('Copied PDF.js runtime assets to /pdfjs.');

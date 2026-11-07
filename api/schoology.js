@@ -25,6 +25,21 @@ async function assignmentComments(req, res) {
   } catch (error) { return S.send(res, error.statusCode || 502, { error: S.safeMessage(error) }); }
 }
 
+
+async function annotationProxy(req,res) {
+  if(req.method!=='POST')return S.send(res,405,{error:'Method not allowed.'},{Allow:'POST'});
+  try{
+    S.checkOrigin(req);const input=S.parseBody(req);const session=S.clientSession(input);
+    const result=await S.annotationRequest(session,input);
+    if(result.binary){
+      res.statusCode=200;res.setHeader('Content-Type',result.contentType||'application/pdf');res.setHeader('Cache-Control','no-store, private');res.setHeader('X-Content-Type-Options','nosniff');
+      if(!result.response.body)return res.end();
+      const {Readable}=require('node:stream');return Readable.fromWeb(result.response.body).pipe(res);
+    }
+    return S.send(res,200,result.data);
+  }catch(error){return S.send(res,error.statusCode||502,{error:S.safeMessage(error)})}
+}
+
 async function proxySchoology(req, res) {
   if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
   try {
@@ -38,5 +53,6 @@ async function proxySchoology(req, res) {
 
 module.exports = async function handler(req, res) {
   if (String(req.query?.action || '') === 'assignment-comments') return assignmentComments(req, res);
+  if (String(req.query?.action || '') === 'annotation') return annotationProxy(req, res);
   return proxySchoology(req, res);
 };

@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'schoology-shell-v11';
+const CACHE_NAME = 'schoology-shell-v12';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -8,6 +8,7 @@ const APP_SHELL = [
   '/renderer.js',
   '/browser-bridge.js',
   '/annotation-editor.js',
+  '/browser-feature-compat.js',
   '/appboot.js',
   '/pwa-register.js',
   '/manifest.json',

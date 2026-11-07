@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.11 — 2026-11-06
+
+- Restore port.51 horizontally centered active tabs on narrow/overflowing tab strips.
+- Restore the View or Download dialog and authenticated in-app PDF, image, audio, and video viewing for browser attachments.
+- Keep original attachment download URLs separate from converted preview URLs.
+- Restore missing light-theme course-app portrait row styling, splash layout, profile-row interaction states, and attachment download-icon contrast.
+- Cache the new browser compatibility layer and refresh existing PWA clients.
+
+
 ## 1.0.10 — 2026-11-06
 
 - Fix the Vercel build failure when the installed PDF.js package does not include its optional `wasm` asset directory; required runtime/worker files remain mandatory.

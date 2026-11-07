@@ -32,7 +32,14 @@
   }
   const s=document.createElement('script');
   s.src='renderer.js';
-  s.onload=function(){console.log('Schoology renderer loaded.');};
+  s.onload=function(){
+    console.log('Schoology renderer loaded.');
+    const compat=document.createElement('script');
+    compat.src='browser-feature-compat.js';
+    compat.onload=function(){console.log('Browser feature compatibility loaded.');};
+    compat.onerror=function(){showError('Schoology could not start','browser-feature-compat.js could not be loaded.');};
+    document.body.appendChild(compat);
+  };
   s.onerror=function(){showError('Schoology could not start','renderer.js could not be loaded.');};
   document.body.appendChild(s);
 })();

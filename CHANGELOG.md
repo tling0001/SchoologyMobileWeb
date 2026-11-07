@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.10 — 2026-11-06
+
+- Fix the Vercel build failure when the installed PDF.js package does not include its optional `wasm` asset directory; required runtime/worker files remain mandatory.
+- Audit the port.51 additions against the browser app: retain the annotation editor and its required Schoology logo/like assets, while excluding native desktop bridges, updater UI, signing scripts, and desktop-only workflows.
+- Bump the PWA service-worker cache so clients refresh the corrected browser assets.
+
 ## 1.0.9 — 2026-11-06
 
 - Port the port.51 student PDF annotation workspace into the browser app, including its assignment launch flow, authenticated Schoology API bridge, and signed annotation-storage requests.

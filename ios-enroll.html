@@ -99,10 +99,11 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
    if(now-manifestCheckedAt<10000)return false;
    manifestCheckedAt=now;
    try{
-     const response=await fetch('https://api.github.com/repos/tling0001/classwire-desktop-for-schoology/releases/latest?_='+Date.now(),{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
+     const response=await fetch('https://api.github.com/repos/tling0001/classwire-swiftui-for-schoology/releases/latest?_='+Date.now(),{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
      if(!response.ok)return false;
      const release=await response.json();
-     const asset=(release.assets||[]).find(a=>/^Schoology-.+-iOS-AdHoc\.plist$/.test(a.name)&&a.browser_download_url);
+     const assets=release.assets||[];
+     const asset=assets.find(a=>/^ClassWire-.+-iOS-AdHoc\.plist$/.test(a.name)&&a.browser_download_url)||assets.find(a=>/^Schoology-.+-iOS-AdHoc\.plist$/.test(a.name)&&a.browser_download_url);
      if(!asset?.browser_download_url)return false;
      installApp.href='itms-services://?action=download-manifest&url='+encodeURIComponent(asset.browser_download_url);
      installApp.classList.remove('hidden');
@@ -136,8 +137,7 @@ button:disabled{opacity:.55;cursor:wait}.secondary{background:#e9f1f8;color:#154
  async function checkActionProgress(){
    if(!buildRequestedAt)return false;
    const targets=[
-     {label:'Tauri',repo:'tling0001/classwire-desktop-for-schoology',workflow:'build-windows.yml',linkId:'actionProgressLink'},
-     {label:'SwiftUI',repo:'tling0001/classwire-swiftui-for-schoology',workflow:'build.yml',linkId:'swiftuiActionProgressLink'}
+     {label:'SwiftUI',repo:'tling0001/classwire-swiftui-for-schoology',workflow:'build.yml',linkId:'actionProgressLink'}
    ];
    try{
      const states=await Promise.all(targets.map(async target=>{

@@ -14,8 +14,8 @@ This feature lets the owner create a private invitation URL that recipients can 
 4. The server creates a single-use, 30-minute enrollment session and returns an Apple Profile Service configuration profile.
 5. The iPhone user follows Apple's prompts to install the temporary profile. Apple sends the device attributes to the callback.
 6. The server validates Apple's signed CMS response against a pinned, trusted Apple device certificate chain, validates the session challenge, and extracts the UDID.
-7. The server registers the verified device with App Store Connect, creates an Ad Hoc provisioning profile containing enabled devices and the configured distribution certificate, and dispatches the GitHub Actions build with that exact profile UUID.
-8. The status page reports when the build workflow has been queued. The IPA must finish building before it can be installed.
+7. The server registers the verified device with App Store Connect, creates an Ad Hoc provisioning profile containing enabled devices and the configured distribution certificate, and dispatches both the Tauri and native SwiftUI iOS Ad Hoc workflows with that exact profile UUID.
+8. The status page reports when both build workflows have been queued. Each repository independently builds its iOS app using the same newly generated Ad Hoc profile; the resulting IPAs must finish building before installation.
 
 ## Invitation behavior and security
 
@@ -35,9 +35,11 @@ This feature lets the owner create a private invitation URL that recipients can 
 - UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN: Redis storage and rate limiting.
 - APPSTORE_API_KEY_ID, APPSTORE_ISSUER_ID, and APPSTORE_API_PRIVATE_KEY: App Store Connect API credentials. GitHub Actions secrets are not automatically shared with Vercel.
 - IOS_ENROLLMENT_ADMIN_SECRET: random secret of at least 32 characters, used by the owner only to create invitation links.
-- GITHUB_ACTIONS_TOKEN: narrowly scoped token that can dispatch the iOS packaging workflow in tling0001/schoology-for-desktop-port.
-- GITHUB_ACTIONS_REPOSITORY=tling0001/schoology-for-desktop-port.
-- GITHUB_ACTIONS_WORKFLOW=build-windows.yml.
+- GITHUB_ACTIONS_TOKEN: token with Actions: write permission for both `tling0001/classwire-desktop-for-schoology` and `tling0001/classwire-swiftui-for-schoology`.
+- GITHUB_ACTIONS_REPOSITORY: optional Tauri repository override; defaults to `tling0001/classwire-desktop-for-schoology`.
+- GITHUB_ACTIONS_WORKFLOW: optional Tauri workflow override; defaults to `build-windows.yml`.
+- SWIFTUI_GITHUB_ACTIONS_REPOSITORY: optional SwiftUI repository override; defaults to `tling0001/classwire-swiftui-for-schoology`.
+- SWIFTUI_GITHUB_ACTIONS_WORKFLOW: optional SwiftUI workflow override; defaults to `build.yml`.
 - IOS_ENROLLMENT_BASE_URL: exact HTTPS production origin for the Vercel deployment.
 - APPLE_DEVICE_CA_PEM: pinned Apple Profile Service device CA certificate. Confirm the correct current certificate using Apple's current documentation before enabling enrollment.
 - IOS_DISTRIBUTION_CERTIFICATE_ID: App Store Connect certificate resource ID matching the iOS P12 imported by GitHub Actions.
@@ -46,7 +48,7 @@ The profile-service callback uses OpenSSL CMS verification with APPLE_DEVICE_CA_
 
 ## Provisioning profile and build requirements
 
-The iOS workflow must download the exact Ad Hoc profile UUID supplied by the enrollment backend. A previously generated profile does not automatically include a newly registered device. The helper creates a fresh profile through App Store Connect and uses the explicitly configured IOS_DISTRIBUTION_CERTIFICATE_ID matching the P12 imported by GitHub Actions. The desktop workflow changes were merged in PR #7 (f487086823a95663e35f059ace839df907383c7b) to accept ios_adhoc_profile_uuid and stage the validated IPA for the QR manifest step. A successful build has not yet been confirmed; inspect the embedded profile to verify the expected bundle identifier and newly enrolled UDID.
+Both iOS workflows must download and select the exact Ad Hoc profile UUID supplied by the enrollment backend. The Tauri workflow builds only the Tauri iOS package; the SwiftUI workflow is dispatched with `ios_adhoc_only=true` so it builds the native SwiftUI iOS package without starting its macOS or Catalyst jobs. Each repository uses its own configured signing secrets and release version. A previously generated profile does not automatically include a newly registered device. The helper creates a fresh profile through App Store Connect and uses the explicitly configured IOS_DISTRIBUTION_CERTIFICATE_ID matching the P12 imported by GitHub Actions. The desktop workflow changes were merged in PR #7 (f487086823a95663e35f059ace839df907383c7b) to accept ios_adhoc_profile_uuid and stage the validated IPA for the QR manifest step. A successful build has not yet been confirmed; inspect the embedded profile to verify the expected bundle identifier and newly enrolled UDID.
 
 ## Testing checklist
 

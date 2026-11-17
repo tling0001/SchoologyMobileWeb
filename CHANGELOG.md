@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.16 — 2026-11-16
+
+- Add persistent publish/unpublish actions for named sign-in configurations. Published links use high-entropy bearer tokens stored only as SHA-256 hashes and remain valid until unpublished or rotated.
+- Redeem persistent published links through the existing native configuration flow while keeping temporary expiring/use-limited enrollment links separate.
+- Preserve publication state when editing a configuration and add an HTTPS fallback route for shared links.
+- Standardize the generic school sign-in label as “Sign in through my school”.
+
+
 ## 1.0.15 — 2026-11-17
 
 - Consolidate the Schoology file download and upload endpoints into one dynamic Vercel function, keeping both routes and streaming multipart uploads while staying within the Hobby plan's 12-function limit.

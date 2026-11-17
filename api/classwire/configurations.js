@@ -67,7 +67,7 @@ function normalizeConfiguration(input, existing) {
     if (buttonIds.has(id)) fail(400, 'Sign-in button IDs must be unique.');
     buttonIds.add(id);
     const type = String(button.type || '').toLowerCase();
-    if (type === 'account' || type === 'qr' || type === 'school-picker') return { id, type, label: cleanText(button.label || (type === 'account' ? 'Sign in with my account' : type === 'qr' ? 'Sign in with a QR code' : 'Choose your school'), 'Button label', 80) };
+    if (type === 'account' || type === 'qr' || type === 'school-picker') return { id, type, label: cleanText(button.label || (type === 'account' ? 'Sign in with my account' : type === 'qr' ? 'Sign in with a QR code' : 'Sign in through my school'), 'Button label', 80) };
     if (type !== 'school') fail(400, 'Unsupported sign-in button type.');
     const schoolId = cleanText(button.schoolId, 'School button selection', 100);
     if (!schoolIds.has(schoolId)) fail(400, 'Every school sign-in button must reference a configured school.');
@@ -160,15 +160,22 @@ module.exports = async function handler(req, res) {
       const configId = cleanText(input.configurationId, 'Configuration ID', 100);
       const tokenHash = hash(token);
       const stored = await redis(['GET', KEY + 'enrollment:' + tokenHash]);
-      if (!stored) fail(404, 'This ClassWire configuration link is invalid, expired, or revoked.');
-      let enrollment;
-      try { enrollment = JSON.parse(stored); } catch { fail(410, 'This ClassWire configuration link is no longer valid.'); }
-      if (enrollment.configurationId !== configId || enrollment.expiresAt <= Date.now() || enrollment.uses >= enrollment.maxUses) fail(410, 'This ClassWire configuration link has expired or reached its use limit.');
       const config = await readConfiguration(configId);
       if (!config || !config.enabled) fail(404, 'This ClassWire configuration is no longer available.');
-      const increment = "local v=redis.call('GET',KEYS[1]); if not v then return 0 end; local o=cjson.decode(v); if o.expiresAt<=tonumber(ARGV[1]) or o.uses>=o.maxUses then return 0 end; o.uses=o.uses+1; redis.call('SET',KEYS[1],cjson.encode(o),'KEEPTTL'); return o.uses";
-      const used = await redis(['EVAL', increment, '1', KEY + 'enrollment:' + tokenHash, String(Date.now())]);
-      if (!Number(used)) fail(410, 'This ClassWire configuration link has expired or reached its use limit.');
+      if (stored) {
+        let enrollment;
+        try { enrollment = JSON.parse(stored); } catch { fail(410, 'This ClassWire configuration link is no longer valid.'); }
+        if (enrollment.configurationId !== configId || enrollment.expiresAt <= Date.now() || enrollment.uses >= enrollment.maxUses) fail(410, 'This ClassWire configuration link has expired or reached its use limit.');
+        const increment = "local v=redis.call('GET',KEYS[1]); if not v then return 0 end; local o=cjson.decode(v); if o.expiresAt<=tonumber(ARGV[1]) or o.uses>=o.maxUses then return 0 end; o.uses=o.uses+1; redis.call('SET',KEYS[1],cjson.encode(o),'KEEPTTL'); return o.uses";
+        const used = await redis(['EVAL', increment, '1', KEY + 'enrollment:' + tokenHash, String(Date.now())]);
+        if (!Number(used)) fail(410, 'This ClassWire configuration link has expired or reached its use limit.');
+      } else {
+        const publishedHash = config.publication?.tokenHash;
+        if (typeof publishedHash !== 'string' || !/^[a-f0-9]{64}$/i.test(publishedHash) ||
+            !crypto.timingSafeEqual(Buffer.from(publishedHash, 'hex'), Buffer.from(tokenHash, 'hex'))) {
+          fail(404, 'This ClassWire configuration link is invalid, expired, or revoked.');
+        }
+      }
       return S.send(res, 200, { applied: true, configuration: { id: config.id, name: config.name, schemaVersion: config.schemaVersion, buttons: config.buttons, schools: config.schools, signOutOnLaunch: config.signOutOnLaunch, updatedAt: config.updatedAt } });
     }
 
@@ -215,16 +222,17 @@ module.exports = async function handler(req, res) {
           return { installationId: id, userId: value.userId, platform: value.platform, createdAt: value.createdAt, label: value.label };
         } catch { return { installationId: id }; }
       }));
-      return S.send(res, 200, { configurations, adminInstallations });
+      return S.send(res, 200, { configurations: configurations.map(({ publication, ...item }) => ({ ...item, publishedAt: publication?.publishedAt || null })), adminInstallations });
     }
     if (action === 'save') {
       const id = input.configurationId ? cleanText(input.configurationId, 'Configuration ID', 100) : randomId('cfg');
       const existing = await readConfiguration(id);
       const configuration = normalizeConfiguration(input.configuration || {}, existing);
-      const saved = { id, ...configuration, createdAt: existing?.createdAt || new Date().toISOString(), createdBy: admin.user.id };
+      const saved = { id, ...configuration, publication: existing?.publication || null, createdAt: existing?.createdAt || new Date().toISOString(), createdBy: admin.user.id };
       await redis(['SET', KEY + 'config:' + id, json(saved)]);
       await redis(['SADD', KEY + 'configurations', id]);
-      return S.send(res, 200, { configuration: saved });
+      const { publication, ...clientConfiguration } = saved;
+      return S.send(res, 200, { configuration: { ...clientConfiguration, publishedAt: publication?.publishedAt || null } });
     }
     if (action === 'delete') {
       const id = cleanText(input.configurationId, 'Configuration ID', 100);
@@ -235,6 +243,28 @@ module.exports = async function handler(req, res) {
     if (action === 'create-link') {
       const id = cleanText(input.configurationId, 'Configuration ID', 100);
       return S.send(res, 200, await createEnrollmentToken(id, input));
+    }
+    if (action === 'publish') {
+      const id = cleanText(input.configurationId, 'Configuration ID', 100);
+      const config = await readConfiguration(id);
+      if (!config || !config.enabled) fail(404, 'The requested configuration is not available.');
+      const token = crypto.randomBytes(32).toString('base64url');
+      const publishedAt = new Date().toISOString();
+      config.publication = { tokenHash: hash(token), publishedAt };
+      config.updatedAt = publishedAt;
+      await redis(['SET', KEY + 'config:' + id, json(config)]);
+      const query = '?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token);
+      const httpsUrl = APP_ORIGIN + '/config/apply' + query;
+      return S.send(res, 200, { published: true, publishedAt, url: httpsUrl, httpsUrl, classwireUrl: 'classwire://config/apply' + query });
+    }
+    if (action === 'unpublish') {
+      const id = cleanText(input.configurationId, 'Configuration ID', 100);
+      const config = await readConfiguration(id);
+      if (!config) fail(404, 'The requested configuration was not found.');
+      config.publication = null;
+      config.updatedAt = new Date().toISOString();
+      await redis(['SET', KEY + 'config:' + id, json(config)]);
+      return S.send(res, 200, { published: false, configurationId: id });
     }
     if (action === 'revoke-link') {
       const token = cleanText(input.token, 'Enrollment token', 128);

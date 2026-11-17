@@ -10,6 +10,10 @@
   ],
   "rewrites": [
     {
+      "source": "/config/apply",
+      "destination": "/config/apply.html"
+    },
+    {
       "source": "/api/push/public-key",
       "destination": "/api/push/subscribe?mode=public-key"
     },

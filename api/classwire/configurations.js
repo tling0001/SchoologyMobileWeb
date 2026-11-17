@@ -38,9 +38,9 @@ function cleanText(value, label, max = 120) {
 function normalizeConfiguration(input, existing) {
   const name = cleanText(input.name ?? existing?.name, 'Configuration name', 80);
   const buttonsInput = Array.isArray(input.buttons) ? input.buttons : (existing?.buttons || []);
-  if (!buttonsInput.length || buttonsInput.length > 30) fail(400, 'Select between 1 and 30 sign-in buttons.');
+  if (!buttonsInput.length || buttonsInput.length > 101) fail(400, 'Select between 1 and 101 sign-in buttons.');
   const schoolsInput = Array.isArray(input.schools) ? input.schools : (existing?.schools || []);
-  if (schoolsInput.length > 20) fail(400, 'A configuration can contain at most 20 schools.');
+  if (schoolsInput.length > 100) fail(400, 'A configuration can contain at most 100 schools.');
   const schools = schoolsInput.map((school, index) => {
     const id = cleanText(school.id || randomId('school'), 'School ' + (index + 1) + ' ID', 100);
     const schoolName = cleanText(school.name, 'School ' + (index + 1) + ' name', 120);
@@ -67,7 +67,7 @@ function normalizeConfiguration(input, existing) {
     if (buttonIds.has(id)) fail(400, 'Sign-in button IDs must be unique.');
     buttonIds.add(id);
     const type = String(button.type || '').toLowerCase();
-    if (type === 'account' || type === 'qr') return { id, type, label: cleanText(button.label || (type === 'account' ? 'Sign in with my account' : 'Sign in with a QR code'), 'Button label', 80) };
+    if (type === 'account' || type === 'qr' || type === 'school-picker') return { id, type, label: cleanText(button.label || (type === 'account' ? 'Sign in with my account' : type === 'qr' ? 'Sign in with a QR code' : 'Choose your school'), 'Button label', 80) };
     if (type !== 'school') fail(400, 'Unsupported sign-in button type.');
     const schoolId = cleanText(button.schoolId, 'School button selection', 100);
     if (!schoolIds.has(schoolId)) fail(400, 'Every school sign-in button must reference a configured school.');
@@ -105,6 +105,15 @@ async function requireAdmin(input) {
   const install = installationId(input);
   const authorized = await redis(['SISMEMBER', KEY + 'admin-installations', install]);
   if (Number(authorized) !== 1) fail(403, 'This installation has not been approved for administrator settings.');
+  const raw = await redis(['GET', KEY + 'admin-install:' + install]);
+  let record;
+  try { record = JSON.parse(raw || '{}'); } catch { record = null; }
+  const presented = String(input.installationSecret || '');
+  if (!record?.secretHash || !/^[a-f0-9]{64}$/i.test(record.secretHash) ||
+      presented.length < 32 || presented.length > 128 ||
+      !crypto.timingSafeEqual(Buffer.from(hash(presented), 'hex'), Buffer.from(record.secretHash, 'hex'))) {
+    fail(403, 'This installation is not securely enrolled for administrator settings. Re-authorize this installation.');
+  }
   return { session, user, installationId: install };
 }
 async function readConfiguration(id) {
@@ -129,10 +138,11 @@ async function createEnrollmentToken(configurationId, input) {
   if (!config || !config.enabled) fail(404, 'The requested configuration is not available.');
   const token = crypto.randomBytes(32).toString('base64url');
   const tokenHash = hash(token);
-  const expiresIn = Math.min(30 * 24 * 60 * 60, Math.max(300, Number(input.expiresInSeconds) || 7 * 24 * 60 * 60));
+  const expiresIn = Math.min(7 * 24 * 60 * 60, Math.max(300, Number(input.expiresInSeconds) || 24 * 60 * 60));
   const maxUses = Math.min(500, Math.max(1, Number(input.maxUses) || 100));
   await redis(['SET', KEY + 'enrollment:' + tokenHash, json({ configurationId, expiresAt: Date.now() + expiresIn * 1000, maxUses, uses: 0, createdAt: new Date().toISOString() }), 'EX', String(expiresIn)]);
-  return { url: APP_ORIGIN + '/config/apply?id=' + encodeURIComponent(configurationId) + '&token=' + encodeURIComponent(token), token, expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(), maxUses };
+  const query = '?id=' + encodeURIComponent(configurationId) + '&token=' + encodeURIComponent(token);
+  return { url: APP_ORIGIN + '/config/apply' + query, classwireUrl: 'classwire://config/apply' + query, token, expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(), maxUses };
 }
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return S.send(res, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
@@ -142,9 +152,8 @@ module.exports = async function handler(req, res) {
     const action = String(input.action || '');
     await S.rateLimit(req, 'classwire-config-' + (action || 'unknown'), action === 'redeem' ? 30 : 20, 900);
 
-    if (action === 'public') {
-      return S.send(res, 200, { schemaVersion: 2, configurations: await publicConfigurations() });
-    }
+    // Configurations are not enumerable without admin authorization; enrollment
+    // tokens redeem only the specific configuration tied to the opaque token.
 
     if (action === 'redeem') {
       const token = cleanText(input.token, 'Enrollment token', 128);
@@ -166,13 +175,29 @@ module.exports = async function handler(req, res) {
     if (action === 'bootstrap') {
       const bootstrap = String(input.bootstrapToken || '');
       const expected = String(process.env.CLASSWIRE_ADMIN_BOOTSTRAP_TOKEN || '');
-      if (!expected || bootstrap.length < 32 || !crypto.timingSafeEqual(Buffer.from(hash(bootstrap)), Buffer.from(hash(expected)))) fail(403, 'The initial administrator enrollment token is not configured or is invalid.');
+      if (!expected || bootstrap.length < 32 || !crypto.timingSafeEqual(Buffer.from(hash(bootstrap), 'hex'), Buffer.from(hash(expected), 'hex'))) fail(403, 'The initial administrator enrollment token is not configured or is invalid.');
       const { user } = await verifiedSchoologyUser(input);
       const install = installationId(input);
+      const installationSecret = cleanText(input.installationSecret, 'Installation secret', 128);
+      if (installationSecret.length < 32) fail(400, 'The installation secret must contain at least 32 characters.');
       const existing = await redis(['SCARD', KEY + 'admin-installations']);
-      if (Number(existing) > 0) fail(409, 'Administrator installation enrollment has already been initialized.');
+      const prior = await redis(['GET', KEY + 'admin-install:' + install]);
+      let priorRecord = null;
+      try { priorRecord = JSON.parse(prior || '{}'); } catch {}
+      // Permit one secure claim of an old pre-secret installation record, but
+      // never replace a previously provisioned installation secret via bootstrap.
+      const alreadyMember = Number(await redis(['SISMEMBER', KEY + 'admin-installations', install])) === 1;
+      if (priorRecord?.secretHash || (Number(existing) > 0 && !alreadyMember)) {
+        fail(409, 'Administrator installation enrollment has already been initialized.');
+      }
       await redis(['SADD', KEY + 'admin-installations', install]);
-      await redis(['SET', KEY + 'admin-install:' + install, json({ userId: user.id, platform: String(input.platform || 'unknown').slice(0, 30), createdAt: new Date().toISOString(), label: String(input.installationName || '').slice(0, 80) })]);
+      await redis(['SET', KEY + 'admin-install:' + install, json({
+        userId: user.id,
+        platform: String(input.platform || 'unknown').slice(0, 30),
+        createdAt: priorRecord?.createdAt || new Date().toISOString(),
+        label: String(input.installationName || '').slice(0, 80),
+        secretHash: hash(installationSecret)
+      })]);
       return S.send(res, 200, { authorized: true, installationId: install });
     }
 
@@ -214,8 +239,16 @@ module.exports = async function handler(req, res) {
     }
     if (action === 'authorize-installation') {
       const id = installationId({ installationId: input.targetInstallationId });
+      const targetSecret = cleanText(input.targetInstallationSecret, 'Target installation secret', 128);
+      if (targetSecret.length < 32) fail(400, 'The target installation secret must contain at least 32 characters.');
       await redis(['SADD', KEY + 'admin-installations', id]);
-      await redis(['SET', KEY + 'admin-install:' + id, json({ userId: admin.user.id, platform: String(input.platform || 'unknown').slice(0, 30), createdAt: new Date().toISOString(), label: String(input.installationName || '').slice(0, 80) })]);
+      await redis(['SET', KEY + 'admin-install:' + id, json({
+        userId: admin.user.id,
+        platform: String(input.platform || 'unknown').slice(0, 30),
+        createdAt: new Date().toISOString(),
+        label: String(input.installationName || '').slice(0, 80),
+        secretHash: hash(targetSecret)
+      })]);
       return S.send(res, 200, { authorized: true, installationId: id });
     }
     if (action === 'revoke-installation') {

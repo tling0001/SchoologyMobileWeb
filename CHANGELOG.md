@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.14 — 2026-11-17
+
+- Harden administrator installation authorization with a per-installation secret hash, verified alongside the live Schoology administrator identity and installation allowlist.
+- Allow an existing bootstrap-enrolled installation to securely claim its per-installation secret once, while preventing bootstrap from overwriting an already-secured installation.
+- Require the authorized admin installation to explicitly provision a secret for every newly authorized device.
+- Stop exposing an unauthenticated list of enabled configurations; enrollment links redeem only the specific configuration tied to their opaque token.
+- Generate both HTTPS enrollment URLs and classwire://config/apply deep links from the same short-lived token.
+- Support the school-search button in shared configuration and increase supported multi-school capacity.
+
+
 ## 1.0.13 — 2026-11-06
 
 - Restore port.51 landscape navigation sidebars and three-pane layouts for courses, groups, and schools.

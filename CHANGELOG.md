@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.15 — 2026-11-17
+
+- Consolidate the Schoology file download and upload endpoints into one dynamic Vercel function, keeping both routes and streaming multipart uploads while staying within the Hobby plan's 12-function limit.
+- Keep administrator installation secret hashes out of the installation-list response.
+
+
 ## 1.0.14 — 2026-11-17
 
 - Harden administrator installation authorization with a per-installation secret hash, verified alongside the live Schoology administrator identity and installation allowlist.

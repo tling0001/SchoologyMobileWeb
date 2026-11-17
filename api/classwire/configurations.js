@@ -209,7 +209,11 @@ module.exports = async function handler(req, res) {
       ]);
       const adminInstallations = await Promise.all((Array.isArray(installations) ? installations : []).map(async id => {
         const raw = await redis(['GET', KEY + 'admin-install:' + id]);
-        try { const value = JSON.parse(raw || '{}'); return { installationId: id, ...value }; } catch { return { installationId: id }; }
+        try {
+          const value = JSON.parse(raw || '{}');
+          // Installation secrets are never returned to clients, including their hashes.
+          return { installationId: id, userId: value.userId, platform: value.platform, createdAt: value.createdAt, label: value.label };
+        } catch { return { installationId: id }; }
       }));
       return S.send(res, 200, { configurations, adminInstallations });
     }

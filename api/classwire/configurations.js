@@ -3,7 +3,13 @@
 const crypto = require('node:crypto');
 const S = require('../../lib/schoology-server');
 
-const ADMIN_SCHOOLOGY_USER_ID = 72720808;
+const LEGACY_ADMIN_SCHOOLOGY_USER_ID = '72720808';
+function configuredAdminUserIds() {
+  const configured = String(process.env.CLASSWIRE_ADMIN_SCHOOLOGY_USER_IDS || LEGACY_ADMIN_SCHOOLOGY_USER_ID);
+  return new Set(configured.split(/[\s,;]+/).map(value => value.trim()).filter(value => /^\d{1,24}$/.test(value)));
+}
+function adminConfigurationKey(userId, id) { return KEY + 'admin:' + String(userId) + ':config:' + id; }
+function adminConfigurationIndex(userId) { return KEY + 'admin:' + String(userId) + ':configurations'; }
 const KEY = 'classwire:v1:';
 const APP_ORIGIN = 'https://schoology-mobile-web.vercel.app';
 
@@ -92,7 +98,6 @@ async function verifiedSchoologyUser(input) {
   let profile;
   try { profile = JSON.parse(response.text); } catch { fail(502, 'Schoology returned an invalid user profile.'); }
   const user = S.safeUser(profile);
-  if (user.id !== ADMIN_SCHOOLOGY_USER_ID) fail(403, 'This Schoology account is not authorized to manage ClassWire configurations.');
   return { session, user };
 }
 function installationId(input) {
@@ -102,28 +107,39 @@ function installationId(input) {
 }
 async function requireAdmin(input) {
   const { session, user } = await verifiedSchoologyUser(input);
-  const install = installationId(input);
-  const authorized = await redis(['SISMEMBER', KEY + 'admin-installations', install]);
-  if (Number(authorized) !== 1) fail(403, 'This installation has not been approved for administrator settings.');
-  const raw = await redis(['GET', KEY + 'admin-install:' + install]);
-  let record;
-  try { record = JSON.parse(raw || '{}'); } catch { record = null; }
-  const presented = String(input.installationSecret || '');
-  if (!record?.secretHash || !/^[a-f0-9]{64}$/i.test(record.secretHash) ||
-      presented.length < 32 || presented.length > 128 ||
-      !crypto.timingSafeEqual(Buffer.from(hash(presented), 'hex'), Buffer.from(record.secretHash, 'hex'))) {
-    fail(403, 'This installation is not securely enrolled for administrator settings. Re-authorize this installation.');
-  }
+  if (!configuredAdminUserIds().has(String(user.id))) fail(403, 'This Schoology account is not authorized to manage ClassWire configurations.');
+  const suppliedId = String(input.installationId || '');
+  const install = /^[A-Za-z0-9_-]{20,128}$/.test(suppliedId) ? suppliedId : null;
   return { session, user, installationId: install };
 }
-async function readConfiguration(id) {
-  const value = await redis(['GET', KEY + 'config:' + id]);
-  if (!value) return null;
-  try { return JSON.parse(value); } catch { return null; }
+async function readConfiguration(ownerId, id) {
+  const key = adminConfigurationKey(ownerId, id);
+  const value = await redis(['GET', key]);
+  if (value) {
+    try { return JSON.parse(value); } catch { return null; }
+  }
+  // Migrate configurations created by the original single-administrator
+  // endpoint. The old endpoint only authorized Schoology user 72720808.
+  if (String(ownerId) !== LEGACY_ADMIN_SCHOOLOGY_USER_ID) return null;
+  const legacy = await redis(['GET', KEY + 'config:' + id]);
+  if (!legacy) return null;
+  try {
+    const config = JSON.parse(legacy);
+    if (config.createdBy != null && String(config.createdBy) !== String(ownerId)) return null;
+    await redis(['SET', key, json(config)]);
+    await redis(['SADD', adminConfigurationIndex(ownerId), id]);
+    return config;
+  } catch { return null; }
 }
-async function listConfigurations() {
-  const ids = await redis(['SMEMBERS', KEY + 'configurations']);
-  const values = await Promise.all((Array.isArray(ids) ? ids : []).map(readConfiguration));
+async function listConfigurations(ownerId) {
+  const ids = new Set();
+  const owned = await redis(['SMEMBERS', adminConfigurationIndex(ownerId)]);
+  for (const id of Array.isArray(owned) ? owned : []) ids.add(String(id));
+  if (String(ownerId) === LEGACY_ADMIN_SCHOOLOGY_USER_ID) {
+    const legacy = await redis(['SMEMBERS', KEY + 'configurations']);
+    for (const id of Array.isArray(legacy) ? legacy : []) ids.add(String(id));
+  }
+  const values = await Promise.all([...ids].map(id => readConfiguration(ownerId, id)));
   return values.filter(Boolean).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
 }
 async function publicConfigurations() {
@@ -133,14 +149,14 @@ async function publicConfigurations() {
     updatedAt: item.updatedAt
   }));
 }
-async function createEnrollmentToken(configurationId, input) {
-  const config = await readConfiguration(configurationId);
+async function createEnrollmentToken(ownerId, configurationId, input) {
+  const config = await readConfiguration(ownerId, configurationId);
   if (!config || !config.enabled) fail(404, 'The requested configuration is not available.');
   const token = crypto.randomBytes(32).toString('base64url');
   const tokenHash = hash(token);
   const expiresIn = Math.min(7 * 24 * 60 * 60, Math.max(300, Number(input.expiresInSeconds) || 24 * 60 * 60));
   const maxUses = Math.min(500, Math.max(1, Number(input.maxUses) || 100));
-  await redis(['SET', KEY + 'enrollment:' + tokenHash, json({ configurationId, expiresAt: Date.now() + expiresIn * 1000, maxUses, uses: 0, createdAt: new Date().toISOString() }), 'EX', String(expiresIn)]);
+  await redis(['SET', KEY + 'enrollment:' + tokenHash, json({ ownerId: String(ownerId), configurationId, expiresAt: Date.now() + expiresIn * 1000, maxUses, uses: 0, createdAt: new Date().toISOString() }), 'EX', String(expiresIn)]);
   const query = '?id=' + encodeURIComponent(configurationId) + '&token=' + encodeURIComponent(token);
   return { url: APP_ORIGIN + '/config/apply' + query, classwireUrl: 'classwire://config/apply' + query, token, expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(), maxUses };
 }
@@ -160,11 +176,24 @@ module.exports = async function handler(req, res) {
       const configId = cleanText(input.configurationId, 'Configuration ID', 100);
       const tokenHash = hash(token);
       const stored = await redis(['GET', KEY + 'enrollment:' + tokenHash]);
-      const config = await readConfiguration(configId);
+      let enrollment = null;
+      let ownerId = LEGACY_ADMIN_SCHOOLOGY_USER_ID;
+      if (stored) {
+        try { enrollment = JSON.parse(stored); } catch { fail(410, 'This ClassWire configuration link is no longer valid.'); }
+        ownerId = String(enrollment.ownerId || LEGACY_ADMIN_SCHOOLOGY_USER_ID);
+      } else {
+        const publication = await redis(['GET', KEY + 'published:' + tokenHash]);
+        if (publication) {
+          try {
+            const value = JSON.parse(publication);
+            if (String(value.configurationId) !== configId) fail(404, 'This ClassWire configuration link is invalid, expired, or revoked.');
+            ownerId = String(value.ownerId);
+          } catch (error) { if (error.statusCode) throw error; fail(404, 'This ClassWire configuration link is invalid, expired, or revoked.'); }
+        }
+      }
+      const config = await readConfiguration(ownerId, configId);
       if (!config || !config.enabled) fail(404, 'This ClassWire configuration is no longer available.');
       if (stored) {
-        let enrollment;
-        try { enrollment = JSON.parse(stored); } catch { fail(410, 'This ClassWire configuration link is no longer valid.'); }
         if (enrollment.configurationId !== configId || enrollment.expiresAt <= Date.now() || enrollment.uses >= enrollment.maxUses) fail(410, 'This ClassWire configuration link has expired or reached its use limit.');
         const increment = "local v=redis.call('GET',KEYS[1]); if not v then return 0 end; local o=cjson.decode(v); if o.expiresAt<=tonumber(ARGV[1]) or o.uses>=o.maxUses then return 0 end; o.uses=o.uses+1; redis.call('SET',KEYS[1],cjson.encode(o),'KEEPTTL'); return o.uses";
         const used = await redis(['EVAL', increment, '1', KEY + 'enrollment:' + tokenHash, String(Date.now())]);
@@ -179,96 +208,92 @@ module.exports = async function handler(req, res) {
       return S.send(res, 200, { applied: true, configuration: { id: config.id, name: config.name, schemaVersion: config.schemaVersion, buttons: config.buttons, schools: config.schools, signOutOnLaunch: config.signOutOnLaunch, updatedAt: config.updatedAt } });
     }
 
-    if (action === 'bootstrap') {
-      const bootstrap = String(input.bootstrapToken || '');
-      const expected = String(process.env.CLASSWIRE_ADMIN_BOOTSTRAP_TOKEN || '');
-      if (!expected || bootstrap.length < 32 || !crypto.timingSafeEqual(Buffer.from(hash(bootstrap), 'hex'), Buffer.from(hash(expected), 'hex'))) fail(403, 'The initial administrator enrollment token is not configured or is invalid.');
-      const { user } = await verifiedSchoologyUser(input);
-      const install = installationId(input);
-      const installationSecret = cleanText(input.installationSecret, 'Installation secret', 128);
-      if (installationSecret.length < 32) fail(400, 'The installation secret must contain at least 32 characters.');
-      const existing = await redis(['SCARD', KEY + 'admin-installations']);
-      const prior = await redis(['GET', KEY + 'admin-install:' + install]);
-      let priorRecord = null;
-      try { priorRecord = JSON.parse(prior || '{}'); } catch {}
-      // Permit one secure claim of an old pre-secret installation record, but
-      // never replace a previously provisioned installation secret via bootstrap.
-      const alreadyMember = Number(await redis(['SISMEMBER', KEY + 'admin-installations', install])) === 1;
-      if (priorRecord?.secretHash || (Number(existing) > 0 && !alreadyMember)) {
-        fail(409, 'Administrator installation enrollment has already been initialized.');
-      }
-      await redis(['SADD', KEY + 'admin-installations', install]);
-      await redis(['SET', KEY + 'admin-install:' + install, json({
-        userId: user.id,
-        platform: String(input.platform || 'unknown').slice(0, 30),
-        createdAt: priorRecord?.createdAt || new Date().toISOString(),
-        label: String(input.installationName || '').slice(0, 80),
-        secretHash: hash(installationSecret)
-      })]);
-      return S.send(res, 200, { authorized: true, installationId: install });
-    }
-
     const admin = await requireAdmin(input);
     if (action === 'list') {
       const [configurations, installations] = await Promise.all([
-        listConfigurations(),
+        listConfigurations(admin.user.id),
         redis(['SMEMBERS', KEY + 'admin-installations'])
       ]);
-      const adminInstallations = await Promise.all((Array.isArray(installations) ? installations : []).map(async id => {
+      const adminInstallations = [];
+      for (const id of Array.isArray(installations) ? installations : []) {
         const raw = await redis(['GET', KEY + 'admin-install:' + id]);
         try {
           const value = JSON.parse(raw || '{}');
-          // Installation secrets are never returned to clients, including their hashes.
-          return { installationId: id, userId: value.userId, platform: value.platform, createdAt: value.createdAt, label: value.label };
-        } catch { return { installationId: id }; }
-      }));
+          if (String(value.userId) !== String(admin.user.id)) continue;
+          adminInstallations.push({ installationId: id, userId: value.userId, platform: value.platform, createdAt: value.createdAt, label: value.label });
+        } catch {}
+      }
       return S.send(res, 200, { configurations: configurations.map(({ publication, ...item }) => ({ ...item, publishedAt: publication?.publishedAt || null })), adminInstallations });
     }
     if (action === 'save') {
       const id = input.configurationId ? cleanText(input.configurationId, 'Configuration ID', 100) : randomId('cfg');
-      const existing = await readConfiguration(id);
+      const existing = await readConfiguration(admin.user.id, id);
       const configuration = normalizeConfiguration(input.configuration || {}, existing);
       const saved = { id, ...configuration, publication: existing?.publication || null, createdAt: existing?.createdAt || new Date().toISOString(), createdBy: admin.user.id };
-      await redis(['SET', KEY + 'config:' + id, json(saved)]);
-      await redis(['SADD', KEY + 'configurations', id]);
+      await redis(['SET', adminConfigurationKey(admin.user.id, id), json(saved)]);
+      await redis(['SADD', adminConfigurationIndex(admin.user.id), id]);
       const { publication, ...clientConfiguration } = saved;
       return S.send(res, 200, { configuration: { ...clientConfiguration, publishedAt: publication?.publishedAt || null } });
     }
     if (action === 'delete') {
       const id = cleanText(input.configurationId, 'Configuration ID', 100);
-      await redis(['DEL', KEY + 'config:' + id]);
-      await redis(['SREM', KEY + 'configurations', id]);
+      const existing = await readConfiguration(admin.user.id, id);
+      if (!existing) fail(404, 'The requested configuration was not found.');
+      if (existing.publication?.tokenHash) await redis(['DEL', KEY + 'published:' + existing.publication.tokenHash]);
+      await redis(['DEL', adminConfigurationKey(admin.user.id, id)]);
+      await redis(['SREM', adminConfigurationIndex(admin.user.id), id]);
+      if (String(admin.user.id) === LEGACY_ADMIN_SCHOOLOGY_USER_ID) {
+        await redis(['DEL', KEY + 'config:' + id]);
+        await redis(['SREM', KEY + 'configurations', id]);
+      }
       return S.send(res, 200, { deleted: true, configurationId: id });
     }
     if (action === 'create-link') {
       const id = cleanText(input.configurationId, 'Configuration ID', 100);
-      return S.send(res, 200, await createEnrollmentToken(id, input));
+      return S.send(res, 200, await createEnrollmentToken(admin.user.id, id, input));
     }
     if (action === 'publish') {
       const id = cleanText(input.configurationId, 'Configuration ID', 100);
-      const config = await readConfiguration(id);
+      const config = await readConfiguration(admin.user.id, id);
       if (!config || !config.enabled) fail(404, 'The requested configuration is not available.');
+      if (config.publication?.tokenHash) await redis(['DEL', KEY + 'published:' + config.publication.tokenHash]);
       const token = crypto.randomBytes(32).toString('base64url');
+      const tokenHash = hash(token);
       const publishedAt = new Date().toISOString();
-      config.publication = { tokenHash: hash(token), publishedAt };
+      config.publication = { tokenHash, publishedAt };
       config.updatedAt = publishedAt;
-      await redis(['SET', KEY + 'config:' + id, json(config)]);
+      await redis(['SET', adminConfigurationKey(admin.user.id, id), json(config)]);
+      await redis(['SET', KEY + 'published:' + tokenHash, json({ ownerId: String(admin.user.id), configurationId: id })]);
       const query = '?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token);
       const httpsUrl = APP_ORIGIN + '/config/apply' + query;
       return S.send(res, 200, { published: true, publishedAt, url: httpsUrl, httpsUrl, classwireUrl: 'classwire://config/apply' + query });
     }
     if (action === 'unpublish') {
       const id = cleanText(input.configurationId, 'Configuration ID', 100);
-      const config = await readConfiguration(id);
+      const config = await readConfiguration(admin.user.id, id);
       if (!config) fail(404, 'The requested configuration was not found.');
+      if (config.publication?.tokenHash) await redis(['DEL', KEY + 'published:' + config.publication.tokenHash]);
       config.publication = null;
       config.updatedAt = new Date().toISOString();
-      await redis(['SET', KEY + 'config:' + id, json(config)]);
+      await redis(['SET', adminConfigurationKey(admin.user.id, id), json(config)]);
       return S.send(res, 200, { published: false, configurationId: id });
     }
     if (action === 'revoke-link') {
       const token = cleanText(input.token, 'Enrollment token', 128);
-      await redis(['DEL', KEY + 'enrollment:' + hash(token)]);
+      const tokenHash = hash(token);
+      const raw = await redis(['GET', KEY + 'enrollment:' + tokenHash]);
+      if (raw) {
+        let record; try { record = JSON.parse(raw); } catch { record = null; }
+        if (String(record?.ownerId || LEGACY_ADMIN_SCHOOLOGY_USER_ID) !== String(admin.user.id)) fail(404, 'The enrollment link was not found.');
+        await redis(['DEL', KEY + 'enrollment:' + tokenHash]);
+      } else {
+        const published = await redis(['GET', KEY + 'published:' + tokenHash]);
+        if (published) {
+          let record; try { record = JSON.parse(published); } catch { record = null; }
+          if (String(record?.ownerId) !== String(admin.user.id)) fail(404, 'The published link was not found.');
+          await redis(['DEL', KEY + 'published:' + tokenHash]);
+        }
+      }
       return S.send(res, 200, { revoked: true });
     }
     if (action === 'authorize-installation') {
@@ -288,6 +313,9 @@ module.exports = async function handler(req, res) {
     if (action === 'revoke-installation') {
       const id = installationId({ installationId: input.targetInstallationId });
       if (id === admin.installationId) fail(409, 'You cannot revoke the administrator installation currently in use.');
+      const raw = await redis(['GET', KEY + 'admin-install:' + id]);
+      let record; try { record = JSON.parse(raw || '{}'); } catch { record = null; }
+      if (!record || String(record.userId) !== String(admin.user.id)) fail(404, 'The administrator installation was not found.');
       await redis(['SREM', KEY + 'admin-installations', id]);
       await redis(['DEL', KEY + 'admin-install:' + id]);
       return S.send(res, 200, { revoked: true, installationId: id });
